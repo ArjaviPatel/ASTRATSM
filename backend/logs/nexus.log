@@ -32791,3 +32791,497 @@ WARNING 2026-04-07 11:44:26,522 views 30612 32176 Resource "resource1@astracyber
 WARNING 2026-04-07 15:45:08,316 log 22380 19972 Bad Request: /api/v1/resources/
 WARNING 2026-04-07 15:45:08,317 basehttp 22380 19972 "POST /api/v1/resources/ HTTP/1.1" 400 111
 WARNING 2026-04-07 15:47:01,246 views 22380 31032 Admin rishabh.p@astracybertech.com changed role of sonia.p@astracybertech.com: resource -> manager
+ERROR 2026-04-30 09:46:58,129 log 27320 30516 Internal Server Error: /api/v1/auth/login/
+Traceback (most recent call last):
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\redis\connection.py", line 276, in connect
+    sock = self.retry.call_with_retry(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\redis\retry.py", line 46, in call_with_retry
+    return do()
+           ^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\redis\connection.py", line 277, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+            ^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\redis\connection.py", line 639, in _connect
+    raise err
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\redis\connection.py", line 627, in _connect
+    sock.connect(socket_address)
+ConnectionRefusedError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\views\decorators\csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\views\generic\base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\rest_framework\views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\rest_framework\views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\rest_framework\views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\rest_framework\views.py", line 497, in dispatch
+    self.initial(request, *args, **kwargs)
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\rest_framework\views.py", line 416, in initial
+    self.check_throttles(request)
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\rest_framework\views.py", line 359, in check_throttles
+    if not throttle.allow_request(request, self):
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\rest_framework\throttling.py", line 123, in allow_request
+    self.history = self.cache.get(self.key, [])
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\core\cache\backends\redis.py", line 187, in get
+    return self._cache.get(key, default)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\core\cache\backends\redis.py", line 99, in get
+    value = client.get(key)
+            ^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\redis\commands\core.py", line 1830, in get
+    return self.execute_command("GET", name)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\redis\client.py", line 542, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\redis\connection.py", line 1109, in get_connection
+    connection.connect()
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\redis\connection.py", line 282, in connect
+    raise ConnectionError(self._error_message(e))
+redis.exceptions.ConnectionError: Error 10061 connecting to localhost:6379. No connection could be made because the target machine actively refused it.
+ERROR 2026-04-30 09:46:58,140 basehttp 27320 30516 "POST /api/v1/auth/login/ HTTP/1.1" 500 145
+ERROR 2026-04-30 09:48:11,778 log 27320 4772 Internal Server Error: /api/v1/auth/login/
+Traceback (most recent call last):
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\redis\connection.py", line 276, in connect
+    sock = self.retry.call_with_retry(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\redis\retry.py", line 46, in call_with_retry
+    return do()
+           ^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\redis\connection.py", line 277, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+            ^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\redis\connection.py", line 639, in _connect
+    raise err
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\redis\connection.py", line 627, in _connect
+    sock.connect(socket_address)
+ConnectionRefusedError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\views\decorators\csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\views\generic\base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\rest_framework\views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\rest_framework\views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\rest_framework\views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\rest_framework\views.py", line 497, in dispatch
+    self.initial(request, *args, **kwargs)
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\rest_framework\views.py", line 416, in initial
+    self.check_throttles(request)
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\rest_framework\views.py", line 359, in check_throttles
+    if not throttle.allow_request(request, self):
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\rest_framework\throttling.py", line 123, in allow_request
+    self.history = self.cache.get(self.key, [])
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\core\cache\backends\redis.py", line 187, in get
+    return self._cache.get(key, default)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\core\cache\backends\redis.py", line 99, in get
+    value = client.get(key)
+            ^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\redis\commands\core.py", line 1830, in get
+    return self.execute_command("GET", name)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\redis\client.py", line 542, in execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\redis\connection.py", line 1109, in get_connection
+    connection.connect()
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\redis\connection.py", line 282, in connect
+    raise ConnectionError(self._error_message(e))
+redis.exceptions.ConnectionError: Error 10061 connecting to localhost:6379. No connection could be made because the target machine actively refused it.
+ERROR 2026-04-30 09:48:11,781 basehttp 27320 4772 "POST /api/v1/auth/login/ HTTP/1.1" 500 145
+WARNING 2026-04-30 09:48:59,291 log 27320 32252 Bad Request: /api/v1/auth/login/
+WARNING 2026-04-30 09:48:59,292 basehttp 27320 32252 "POST /api/v1/auth/login/ HTTP/1.1" 400 120
+ERROR 2026-04-30 09:52:10,043 email_utils 27320 24060 Failed to send OTP email via Microsoft Graph: {"error":"invalid_client","error_description":"AADSTS7000215: Invalid client secret provided. Ensure the secret being sent in the request is the client secret value, not the client secret ID, for a secret added to app '02a0837f-4389-4531-b310-d037dfb4f481'. Trace ID: e0d72964-a30c-44a4-8156-e0fcc28d8900 Correlation ID: cbb9c3d8-40f4-4619-9c44-d3781d2b3099 Timestamp: 2026-04-30 04:22:12Z","error_codes":[7000215],"timestamp":"2026-04-30 04:22:12Z","trace_id":"e0d72964-a30c-44a4-8156-e0fcc28d8900","correlation_id":"cbb9c3d8-40f4-4619-9c44-d3781d2b3099","error_uri":"https://login.microsoftonline.com/error?code=7000215"}
+Traceback (most recent call last):
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\accounts\email_utils.py", line 154, in send_otp_email
+    _send_email([to_email], subject, plain_body, html_body)
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\accounts\email_utils.py", line 91, in _send_email
+    _send_via_graph(recipients, subject, html_body or plain_body, 'HTML' if html_body else 'Text')
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\accounts\email_utils.py", line 55, in _send_via_graph
+    token = _graph_access_token()
+            ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\accounts\email_utils.py", line 49, in _graph_access_token
+    with request.urlopen(req, timeout=15) as response:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 216, in urlopen
+    return opener.open(url, data, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 525, in open
+    response = meth(req, response)
+               ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 634, in http_response
+    response = self.parent.error(
+               ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 563, in error
+    return self._call_chain(*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 496, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "C:\Users\RISHABH\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 643, in http_error_default
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 401: Unauthorized
+ERROR 2026-04-30 09:52:10,080 log 27320 24060 Service Unavailable: /api/v1/auth/login/
+ERROR 2026-04-30 09:52:10,081 basehttp 27320 24060 "POST /api/v1/auth/login/ HTTP/1.1" 503 38
+ERROR 2026-04-30 09:54:45,021 email_utils 27320 17296 Failed to send OTP email via Microsoft Graph: {"error":"invalid_client","error_description":"AADSTS7000215: Invalid client secret provided. Ensure the secret being sent in the request is the client secret value, not the client secret ID, for a secret added to app '02a0837f-4389-4531-b310-d037dfb4f481'. Trace ID: b0abd4c3-1933-4ade-995d-011422312a00 Correlation ID: 693b6ac9-d528-4ac5-88bd-da348c44aa2c Timestamp: 2026-04-30 04:24:47Z","error_codes":[7000215],"timestamp":"2026-04-30 04:24:47Z","trace_id":"b0abd4c3-1933-4ade-995d-011422312a00","correlation_id":"693b6ac9-d528-4ac5-88bd-da348c44aa2c","error_uri":"https://login.microsoftonline.com/error?code=7000215"}
+Traceback (most recent call last):
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\accounts\email_utils.py", line 154, in send_otp_email
+    _send_email([to_email], subject, plain_body, html_body)
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\accounts\email_utils.py", line 91, in _send_email
+    _send_via_graph(recipients, subject, html_body or plain_body, 'HTML' if html_body else 'Text')
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\accounts\email_utils.py", line 55, in _send_via_graph
+    token = _graph_access_token()
+            ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\accounts\email_utils.py", line 49, in _graph_access_token
+    with request.urlopen(req, timeout=15) as response:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 216, in urlopen
+    return opener.open(url, data, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 525, in open
+    response = meth(req, response)
+               ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 634, in http_response
+    response = self.parent.error(
+               ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 563, in error
+    return self._call_chain(*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 496, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "C:\Users\RISHABH\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 643, in http_error_default
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 401: Unauthorized
+ERROR 2026-04-30 09:54:45,025 log 27320 17296 Service Unavailable: /api/v1/auth/login/
+ERROR 2026-04-30 09:54:45,026 basehttp 27320 17296 "POST /api/v1/auth/login/ HTTP/1.1" 503 38
+WARNING 2026-04-30 09:56:03,415 views 33616 22248 Admin rishabh.p@astracybertech.com changed role of khushi.m@astracybertech.com: resource -> manager
+WARNING 2026-04-30 09:57:05,153 views 33616 25172 Admin rishabh.p@astracybertech.com changed role of sonia.p@astracybertech.com: manager -> resource
+ERROR 2026-04-30 11:47:58,570 log 19964 24880 Internal Server Error: /api/v1/approvals/1/apply_edit/
+Traceback (most recent call last):
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\views\decorators\csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\rest_framework\viewsets.py", line 124, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\rest_framework\views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\rest_framework\views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\rest_framework\views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\rest_framework\views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\projects\views.py", line 586, in apply_edit
+    req.save(update_fields=['proposed_changes'])
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\models\base.py", line 814, in save
+    self.save_base(
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\models\base.py", line 877, in save_base
+    updated = self._save_table(
+              ^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\models\base.py", line 990, in _save_table
+    updated = self._do_update(
+              ^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\models\base.py", line 1054, in _do_update
+    return filtered._update(values) > 0
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\models\query.py", line 1231, in _update
+    return query.get_compiler(self.db).execute_sql(CURSOR)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\models\sql\compiler.py", line 1984, in execute_sql
+    cursor = super().execute_sql(result_type)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\models\sql\compiler.py", line 1562, in execute_sql
+    cursor.execute(sql, params)
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\backends\utils.py", line 67, in execute
+    return self._execute_with_wrappers(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\backends\utils.py", line 80, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\backends\utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\psycopg2\_json.py", line 78, in getquoted
+    s = self.dumps(self.adapted)
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\psycopg2\_json.py", line 72, in dumps
+    return self._dumps(obj)
+           ^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\AppData\Local\Programs\Python\Python311\Lib\json\__init__.py", line 231, in dumps
+    return _default_encoder.encode(obj)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\AppData\Local\Programs\Python\Python311\Lib\json\encoder.py", line 200, in encode
+    chunks = self.iterencode(o, _one_shot=True)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\AppData\Local\Programs\Python\Python311\Lib\json\encoder.py", line 258, in iterencode
+    return _iterencode(o, 0)
+           ^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\AppData\Local\Programs\Python\Python311\Lib\json\encoder.py", line 180, in default
+    raise TypeError(f'Object of type {o.__class__.__name__} '
+TypeError: Object of type date is not JSON serializable
+ERROR 2026-04-30 11:47:58,623 basehttp 19964 24880 "POST /api/v1/approvals/1/apply_edit/ HTTP/1.1" 500 145
+ERROR 2026-04-30 11:48:28,731 log 19964 9672 Internal Server Error: /api/v1/approvals/1/apply_edit/
+Traceback (most recent call last):
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\views\decorators\csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\rest_framework\viewsets.py", line 124, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\rest_framework\views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\rest_framework\views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\rest_framework\views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\rest_framework\views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\projects\views.py", line 586, in apply_edit
+    req.save(update_fields=['proposed_changes'])
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\models\base.py", line 814, in save
+    self.save_base(
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\models\base.py", line 877, in save_base
+    updated = self._save_table(
+              ^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\models\base.py", line 990, in _save_table
+    updated = self._do_update(
+              ^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\models\base.py", line 1054, in _do_update
+    return filtered._update(values) > 0
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\models\query.py", line 1231, in _update
+    return query.get_compiler(self.db).execute_sql(CURSOR)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\models\sql\compiler.py", line 1984, in execute_sql
+    cursor = super().execute_sql(result_type)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\models\sql\compiler.py", line 1562, in execute_sql
+    cursor.execute(sql, params)
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\backends\utils.py", line 67, in execute
+    return self._execute_with_wrappers(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\backends\utils.py", line 80, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\backends\utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\psycopg2\_json.py", line 78, in getquoted
+    s = self.dumps(self.adapted)
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\psycopg2\_json.py", line 72, in dumps
+    return self._dumps(obj)
+           ^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\AppData\Local\Programs\Python\Python311\Lib\json\__init__.py", line 231, in dumps
+    return _default_encoder.encode(obj)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\AppData\Local\Programs\Python\Python311\Lib\json\encoder.py", line 200, in encode
+    chunks = self.iterencode(o, _one_shot=True)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\AppData\Local\Programs\Python\Python311\Lib\json\encoder.py", line 258, in iterencode
+    return _iterencode(o, 0)
+           ^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\AppData\Local\Programs\Python\Python311\Lib\json\encoder.py", line 180, in default
+    raise TypeError(f'Object of type {o.__class__.__name__} '
+TypeError: Object of type date is not JSON serializable
+ERROR 2026-04-30 11:48:28,742 basehttp 19964 9672 "POST /api/v1/approvals/1/apply_edit/ HTTP/1.1" 500 145
+ERROR 2026-04-30 11:48:34,282 log 19964 4292 Internal Server Error: /api/v1/approvals/1/apply_edit/
+Traceback (most recent call last):
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\views\decorators\csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\rest_framework\viewsets.py", line 124, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\rest_framework\views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\rest_framework\views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\rest_framework\views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\rest_framework\views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\projects\views.py", line 586, in apply_edit
+    req.save(update_fields=['proposed_changes'])
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\models\base.py", line 814, in save
+    self.save_base(
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\models\base.py", line 877, in save_base
+    updated = self._save_table(
+              ^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\models\base.py", line 990, in _save_table
+    updated = self._do_update(
+              ^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\models\base.py", line 1054, in _do_update
+    return filtered._update(values) > 0
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\models\query.py", line 1231, in _update
+    return query.get_compiler(self.db).execute_sql(CURSOR)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\models\sql\compiler.py", line 1984, in execute_sql
+    cursor = super().execute_sql(result_type)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\models\sql\compiler.py", line 1562, in execute_sql
+    cursor.execute(sql, params)
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\backends\utils.py", line 67, in execute
+    return self._execute_with_wrappers(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\backends\utils.py", line 80, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\backends\utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\psycopg2\_json.py", line 78, in getquoted
+    s = self.dumps(self.adapted)
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\psycopg2\_json.py", line 72, in dumps
+    return self._dumps(obj)
+           ^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\AppData\Local\Programs\Python\Python311\Lib\json\__init__.py", line 231, in dumps
+    return _default_encoder.encode(obj)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\AppData\Local\Programs\Python\Python311\Lib\json\encoder.py", line 200, in encode
+    chunks = self.iterencode(o, _one_shot=True)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\AppData\Local\Programs\Python\Python311\Lib\json\encoder.py", line 258, in iterencode
+    return _iterencode(o, 0)
+           ^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\AppData\Local\Programs\Python\Python311\Lib\json\encoder.py", line 180, in default
+    raise TypeError(f'Object of type {o.__class__.__name__} '
+TypeError: Object of type date is not JSON serializable
+ERROR 2026-04-30 11:48:34,285 basehttp 19964 4292 "POST /api/v1/approvals/1/apply_edit/ HTTP/1.1" 500 145
+ERROR 2026-04-30 12:02:27,921 log 19964 33484 Internal Server Error: /api/v1/approvals/1/apply_edit/
+Traceback (most recent call last):
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\views\decorators\csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\rest_framework\viewsets.py", line 124, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\rest_framework\views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\rest_framework\views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\rest_framework\views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\rest_framework\views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\projects\views.py", line 586, in apply_edit
+    req.save(update_fields=['proposed_changes'])
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\models\base.py", line 814, in save
+    self.save_base(
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\models\base.py", line 877, in save_base
+    updated = self._save_table(
+              ^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\models\base.py", line 990, in _save_table
+    updated = self._do_update(
+              ^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\models\base.py", line 1054, in _do_update
+    return filtered._update(values) > 0
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\models\query.py", line 1231, in _update
+    return query.get_compiler(self.db).execute_sql(CURSOR)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\models\sql\compiler.py", line 1984, in execute_sql
+    cursor = super().execute_sql(result_type)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\models\sql\compiler.py", line 1562, in execute_sql
+    cursor.execute(sql, params)
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\backends\utils.py", line 67, in execute
+    return self._execute_with_wrappers(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\backends\utils.py", line 80, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\django\db\backends\utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\psycopg2\_json.py", line 78, in getquoted
+    s = self.dumps(self.adapted)
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\Desktop\tsm\ASTRATSM\backend\venv\Lib\site-packages\psycopg2\_json.py", line 72, in dumps
+    return self._dumps(obj)
+           ^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\AppData\Local\Programs\Python\Python311\Lib\json\__init__.py", line 231, in dumps
+    return _default_encoder.encode(obj)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\AppData\Local\Programs\Python\Python311\Lib\json\encoder.py", line 200, in encode
+    chunks = self.iterencode(o, _one_shot=True)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\AppData\Local\Programs\Python\Python311\Lib\json\encoder.py", line 258, in iterencode
+    return _iterencode(o, 0)
+           ^^^^^^^^^^^^^^^^^
+  File "C:\Users\RISHABH\AppData\Local\Programs\Python\Python311\Lib\json\encoder.py", line 180, in default
+    raise TypeError(f'Object of type {o.__class__.__name__} '
+TypeError: Object of type date is not JSON serializable
+ERROR 2026-04-30 12:02:27,933 basehttp 19964 33484 "POST /api/v1/approvals/1/apply_edit/ HTTP/1.1" 500 145

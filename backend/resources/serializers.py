@@ -6,7 +6,7 @@ from rest_framework import serializers
 from accounts.models import User, validate_company_email
 from accounts.serializers import UserSerializer
 from timelines.models import Timeline
-from .models import ResourceProfile, TimeEntry
+from .models import ResourceProfile, TimeEntry, TimesheetLateEntryApproval
 
 
 class ResourceProfileSerializer(serializers.ModelSerializer):
@@ -166,5 +166,58 @@ class TimeEntrySerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({'resource': 'You can only log time for yourself.'})
             if timeline and not timeline.assignees.filter(pk=user.pk).exists() and not timeline.project.resources.filter(pk=user.pk).exists():
                 raise serializers.ValidationError({'timeline': 'You can only log time for phases assigned to you.'})
+            if entry_date and entry_date < timezone.localdate() and entry_date.weekday() < 5:
+                approved_backfill = TimesheetLateEntryApproval.objects.filter(
+                    resource=user.resource_profile,
+                    date=entry_date,
+                    status=TimesheetLateEntryApproval.Status.APPROVED,
+                ).exists()
+                if not approved_backfill:
+                    raise serializers.ValidationError({
+                        'date': 'Late timesheet entry requires admin approval for this date.'
+                    })
 
+        return attrs
+
+
+class TimesheetLateEntryApprovalSerializer(serializers.ModelSerializer):
+    resource_name = serializers.CharField(source='resource.user.name', read_only=True)
+    requested_by_name = serializers.CharField(source='requested_by.name', read_only=True)
+    resolved_by_name = serializers.CharField(source='resolved_by.name', read_only=True)
+
+    class Meta:
+        model = TimesheetLateEntryApproval
+        fields = [
+            'id', 'resource', 'resource_name', 'date', 'reason',
+            'status', 'admin_note',
+            'requested_by', 'requested_by_name',
+            'resolved_by', 'resolved_by_name',
+            'resolved_at', 'created_at',
+        ]
+        read_only_fields = [
+            'id', 'status', 'admin_note',
+            'requested_by', 'requested_by_name',
+            'resolved_by', 'resolved_by_name',
+            'resolved_at', 'created_at',
+        ]
+
+    def validate(self, attrs):
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        resource = attrs.get('resource')
+        date = attrs.get('date')
+
+        if not user or not user.is_authenticated:
+            raise serializers.ValidationError('Authentication required.')
+        if user.role == User.Role.RESOURCE:
+            if not hasattr(user, 'resource_profile'):
+                raise serializers.ValidationError('Your account does not have a resource profile.')
+            attrs['resource'] = user.resource_profile
+            resource = attrs['resource']
+        if not resource:
+            raise serializers.ValidationError({'resource': 'Resource is required.'})
+        if date and date >= timezone.localdate():
+            raise serializers.ValidationError({'date': 'Late entry approval is only for past dates.'})
+        if date and date.weekday() >= 5:
+            raise serializers.ValidationError({'date': 'Late entry approval is only required for weekdays.'})
         return attrs

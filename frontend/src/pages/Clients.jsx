@@ -1,13 +1,14 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Building2, Search, Download } from 'lucide-react'
 import { clientsApi } from '@/api/index.js'
-import { Btn, Badge, EmptyState, Modal, Input, Select, Textarea } from '@/components/ui/index.jsx'
+import { Btn, Badge, EmptyState, Modal, Input, Select, Textarea, Pagination } from '@/components/ui/index.jsx'
 import { downloadBlob, extractError, timeAgo } from '@/utils/index.js'
 import { useAuthStore } from '@/stores/authStore.js'
 
 const STATUS_COLOR = { active: 'var(--success)', prospect: 'var(--info)', inactive: 'var(--text-3)' }
+const PAGE_SIZE = 15
 
 export default function ClientsPage() {
   const navigate = useNavigate()
@@ -16,15 +17,27 @@ export default function ClientsPage() {
   const isAdmin = user?.role === 'admin'
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [page, setPage] = useState(1)
   const [showCreate, setShowCreate] = useState(false)
   const [exporting, setExporting] = useState(false)
 
+  useEffect(() => {
+    setPage(1)
+  }, [search, statusFilter])
+
   const { data, isLoading } = useQuery({
-    queryKey: ['clients', search, statusFilter],
-    queryFn: () => clientsApi.list({ search: search || undefined, status: statusFilter || undefined, page_size: 500 }).then(r => r.data.results || r.data),
+    queryKey: ['clients', search, statusFilter, page],
+    queryFn: () => clientsApi.list({
+      search: search || undefined,
+      status: statusFilter || undefined,
+      page,
+      page_size: PAGE_SIZE,
+    }).then(r => r.data),
   })
 
-  const clients = data || []
+  const clients = data?.results || data || []
+  const total = data?.count ?? clients.length
+  const totalPages = data?.total_pages ?? 1
 
   async function exportClients() {
     setExporting(true)
@@ -41,7 +54,7 @@ export default function ClientsPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 'var(--sp-3)', flexWrap: 'wrap' }}>
         <div>
           <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '1.8rem', letterSpacing: '-0.02em' }}>Clients</h1>
-          <p style={{ color: 'var(--text-2)', fontSize: '14px', marginTop: 4 }}>{clients.length} total</p>
+          <p style={{ color: 'var(--text-2)', fontSize: '14px', marginTop: 4 }}>{total} total</p>
         </div>
         <div style={{ display: 'flex', gap: 'var(--sp-2)', flexWrap: 'wrap' }}>
           {isAdmin && <Btn variant="ghost" icon={<Download size={14} />} loading={exporting} onClick={exportClients}>Export Excel</Btn>}
@@ -53,9 +66,9 @@ export default function ClientsPage() {
         <div style={{ position: 'relative', flex: 1, maxWidth: 320 }}>
           <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)', pointerEvents: 'none' }} />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search clients..."
-            style={{ width: '100%', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '13px', padding: '8px 12px 8px 32px', outline: 'none' }} />
+            style={{ width: '100%', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '15px', padding: '8px 12px 8px 32px', outline: 'none' }} />
         </div>
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-1)', fontSize: '13px', padding: '8px 12px', outline: 'none', cursor: 'pointer' }}>
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-1)', fontSize: '15px', padding: '8px 12px', outline: 'none', cursor: 'pointer' }}>
           <option value="">All statuses</option>
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
@@ -74,7 +87,7 @@ export default function ClientsPage() {
             <thead>
               <tr>
                 {['Client Name', 'Contact Person 1', 'Contact Person 2', 'Email 1', 'Email 2', 'Website', 'Status', 'Projects', 'Added'].map(h => (
-                  <th key={h} style={{ textAlign: 'left', padding: '10px 16px', fontSize: '11px', fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{h}</th>
+                  <th key={h} style={{ textAlign: 'left', padding: '10px 16px', fontSize: '13px', fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -88,26 +101,26 @@ export default function ClientsPage() {
                 >
                   <td style={{ padding: '12px 16px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
-                      <div style={{ width: 32, height: 32, borderRadius: 'var(--r-md)', background: 'var(--bg-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 700, color: 'var(--accent)', fontFamily: 'var(--font-display)', flexShrink: 0 }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 'var(--r-md)', background: 'var(--bg-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', fontWeight: 700, color: 'var(--accent)', fontFamily: 'var(--font-display)', flexShrink: 0 }}>
                         {c.name[0].toUpperCase()}
                       </div>
-                      <span style={{ fontWeight: 600, fontSize: '13px', whiteSpace: 'nowrap' }}>{c.name}</span>
+                      <span style={{ fontWeight: 600, fontSize: '15px', whiteSpace: 'nowrap' }}>{c.name}</span>
                     </div>
                   </td>
-                  <td style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-2)' }}>{c.contact_person || '?'}</td>
-                  <td style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-2)' }}>{c.contact_person2 || '?'}</td>
-                  <td style={{ padding: '12px 16px', fontSize: '12px', color: 'var(--text-2)' }}>{c.email || '?'}</td>
-                  <td style={{ padding: '12px 16px', fontSize: '12px', color: 'var(--text-2)' }}>{c.email2 || '?'}</td>
-                  <td style={{ padding: '12px 16px', fontSize: '12px', color: 'var(--text-3)' }}>
+                  <td style={{ padding: '12px 16px', fontSize: '15px', color: 'var(--text-2)' }}>{c.contact_person || '?'}</td>
+                  <td style={{ padding: '12px 16px', fontSize: '15px', color: 'var(--text-2)' }}>{c.contact_person2 || '?'}</td>
+                  <td style={{ padding: '12px 16px', fontSize: '14px', color: 'var(--text-2)' }}>{c.email || '?'}</td>
+                  <td style={{ padding: '12px 16px', fontSize: '14px', color: 'var(--text-2)' }}>{c.email2 || '?'}</td>
+                  <td style={{ padding: '12px 16px', fontSize: '14px', color: 'var(--text-3)' }}>
                     {c.website ? c.website.replace(/^https?:\/\//, '') : '?'}
                   </td>
                   <td style={{ padding: '12px 16px' }}>
                     <Badge color={STATUS_COLOR[c.status]}>{c.status}</Badge>
                   </td>
-                  <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontSize: '13px', color: 'var(--text-2)' }}>
+                  <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontSize: '15px', color: 'var(--text-2)' }}>
                     {c.project_count ?? '?'}
                   </td>
-                  <td style={{ padding: '12px 16px', fontSize: '11px', color: 'var(--text-3)', fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>{timeAgo(c.onboarded_at)}</td>
+                  <td style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-3)', fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>{timeAgo(c.onboarded_at)}</td>
                 </tr>
               ))}
             </tbody>
@@ -115,7 +128,16 @@ export default function ClientsPage() {
         )}
       </div>
 
-      {showCreate && <CreateClientModal onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); qc.invalidateQueries(['clients']) }} />}
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        pageSize={PAGE_SIZE}
+        onPageChange={setPage}
+        loading={isLoading}
+      />
+
+      {showCreate && <CreateClientModal onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); setPage(1); qc.invalidateQueries({ queryKey: ['clients'] }) }} />}
     </div>
   )
 }
@@ -163,7 +185,7 @@ function CreateClientModal({ onClose, onCreated }) {
     <Modal open onClose={onClose} title="New Client" fullscreen>
       <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
         {error && (
-          <div style={{ color: 'var(--danger)', fontSize: '13px', background: 'rgba(248,113,113,0.1)', padding: '8px 12px', borderRadius: 'var(--r-md)' }}>
+          <div style={{ color: 'var(--danger)', fontSize: '15px', background: 'rgba(248,113,113,0.1)', padding: '8px 12px', borderRadius: 'var(--r-md)' }}>
             {error}
           </div>
         )}

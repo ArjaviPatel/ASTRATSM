@@ -121,7 +121,7 @@ export default function ClientDetailPage() {
 
       {/* Back */}
       <button onClick={() => navigate('/clients')}
-        style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', width: 'fit-content' }}>
+        style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '15px', width: 'fit-content' }}>
         <ArrowLeft size={14} /> Back to Clients
       </button>
 
@@ -164,12 +164,12 @@ export default function ClientDetailPage() {
         )}
       </div>
 
-      {error && <div style={{ color: 'var(--danger)', fontSize: '13px', background: 'rgba(248,113,113,0.1)', padding: '10px 14px', borderRadius: 'var(--r-md)' }}>{error}</div>}
+      {error && <div style={{ color: 'var(--danger)', fontSize: '15px', background: 'rgba(248,113,113,0.1)', padding: '10px 14px', borderRadius: 'var(--r-md)' }}>{error}</div>}
 
       {/* Edit Form */}
       {editing && form && (
         <div style={{ background: 'var(--bg-1)', border: '1px solid var(--accent)', borderRadius: 'var(--r-lg)', padding: 'var(--sp-5)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
-          <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Editing Client</div>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Editing Client</div>
 
           {/* Company Name */}
           <Input label="Company Name" value={form.name} onChange={e => f('name', e.target.value)} required />
@@ -196,9 +196,9 @@ export default function ClientDetailPage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--sp-4)' }}>
             <Input label="Website" value={form.website} onChange={e => f('website', e.target.value)} placeholder="https://" />
             <div>
-              <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>Status</div>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>Status</div>
               <select value={form.status} onChange={e => f('status', e.target.value)}
-                style={{ width: '100%', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-1)', fontSize: '13px', padding: '8px 12px', outline: 'none' }}>
+                style={{ width: '100%', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-1)', fontSize: '15px', padding: '8px 12px', outline: 'none' }}>
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
               </select>
@@ -298,12 +298,12 @@ function MetricBox({ icon: Icon, label, value }) {
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <Icon size={11} color="var(--text-3)" />
-        <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+        <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
           {label}
         </span>
       </div>
       <div style={{
-        fontSize: '13px',
+        fontSize: '15px',
         fontWeight: 600,
         color: value ? 'var(--text-0)' : 'var(--text-3)',
         overflow: 'hidden',
@@ -321,7 +321,7 @@ function OverviewTab({ client: c }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-5)' }}>
       {c.notes && (
         <div>
-          <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 'var(--sp-2)' }}>Notes</div>
+          <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 'var(--sp-2)' }}>Notes</div>
           <p style={{ fontSize: '14px', color: 'var(--text-1)', lineHeight: 1.7 }}>{c.notes}</p>
         </div>
       )}
@@ -396,22 +396,22 @@ function ProjectsTab({ projects, loading, navigate }) {
             {/* Row 2 — Meta info */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-5)', flexWrap: 'wrap' }}>
               {(p.start_date || p.end_date) && (
-                <span style={{ fontSize: '12px', color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ fontSize: '14px', color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 4 }}>
                   📅 {p.start_date ? formatDate(p.start_date) : '?'} → {p.end_date ? formatDate(p.end_date) : '?'}
                 </span>
               )}
               {p.manager_name && (
-                <span style={{ fontSize: '12px', color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ fontSize: '14px', color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 4 }}>
                   👤 {p.manager_name}
                 </span>
               )}
               {p.resource_count !== undefined && (
-                <span style={{ fontSize: '12px', color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ fontSize: '14px', color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 4 }}>
                   🔧 {p.resource_count} resource{p.resource_count !== 1 ? 's' : ''}
                 </span>
               )}
               {parseFloat(p.budget) > 0 && (
-                <span style={{ fontSize: '12px', color: isOverBudget ? 'var(--danger)' : 'var(--text-3)', fontWeight: isOverBudget ? 600 : 400 }}>
+                <span style={{ fontSize: '14px', color: isOverBudget ? 'var(--danger)' : 'var(--text-3)', fontWeight: isOverBudget ? 600 : 400 }}>
                   💰 ${parseFloat(p.spent).toLocaleString()} / ${parseFloat(p.budget).toLocaleString()}
                   {isOverBudget && ' ⚠ Over budget'}
                 </span>
@@ -429,7 +429,7 @@ function ProjectsTab({ projects, loading, navigate }) {
                   transition: 'width 0.4s ease',
                 }} />
               </div>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-2)', minWidth: 32, textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
+              <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-2)', minWidth: 32, textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
                 {progress}%
               </span>
             </div>
@@ -491,7 +491,7 @@ function ContactsTab({ contacts, clientId, canEdit, onRefresh }) {
                 <Input label="Phone" value={editForm.phone} onChange={e => ef('phone', e.target.value)} />
               </div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: '13px', color: 'var(--text-2)' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: '15px', color: 'var(--text-2)' }}>
                   <input type="checkbox" checked={editForm.is_primary} onChange={e => ef('is_primary', e.target.checked)} style={{ accentColor: 'var(--accent)' }} />
                   Primary contact
                 </label>
@@ -507,11 +507,11 @@ function ContactsTab({ contacts, clientId, canEdit, onRefresh }) {
                 {contact.name[0].toUpperCase()}
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600, fontSize: '13px', display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
+                <div style={{ fontWeight: 600, fontSize: '15px', display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
                   {contact.name}
                   {contact.is_primary && <Badge color="var(--accent)">Primary</Badge>}
                 </div>
-                <div style={{ fontSize: '12px', color: 'var(--text-3)' }}>
+                <div style={{ fontSize: '14px', color: 'var(--text-3)' }}>
                   {contact.position && <span>{contact.position} · </span>}
                   {contact.email}
                   {contact.phone && <span> · {contact.phone}</span>}
@@ -563,7 +563,7 @@ function AddContactModal({ clientId, onClose, onSaved }) {
   return (
     <Modal open onClose={onClose} title="Add Contact" width={460}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
-        {error && <div style={{ color: 'var(--danger)', fontSize: '13px', background: 'rgba(248,113,113,0.1)', padding: '8px 12px', borderRadius: 'var(--r-md)' }}>{error}</div>}
+        {error && <div style={{ color: 'var(--danger)', fontSize: '15px', background: 'rgba(248,113,113,0.1)', padding: '8px 12px', borderRadius: 'var(--r-md)' }}>{error}</div>}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--sp-3)' }}>
           <Input label="Full Name" value={form.name} onChange={e => f('name', e.target.value)} required />
           <Input label="Position / Role" value={form.position} onChange={e => f('position', e.target.value)} />
@@ -572,7 +572,7 @@ function AddContactModal({ clientId, onClose, onSaved }) {
           <Input label="Email" type="email" value={form.email} onChange={e => f('email', e.target.value)} />
           <Input label="Phone" value={form.phone} onChange={e => f('phone', e.target.value)} />
         </div>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: '13px', color: 'var(--text-2)' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: '15px', color: 'var(--text-2)' }}>
           <input type="checkbox" checked={form.is_primary} onChange={e => f('is_primary', e.target.checked)}
             style={{ accentColor: 'var(--accent)', width: 14, height: 14 }} />
           Mark as primary contact

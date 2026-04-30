@@ -420,11 +420,19 @@ class TimelineApprovalViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         qs = TimelineApprovalRequest.objects.select_related('timeline__project', 'requested_by', 'resolved_by')
+        status_filter = self.request.query_params.get('status')
+        request_type = self.request.query_params.get('request_type')
         if user.role == User.Role.ADMIN:
-            return qs.all()
-        if user.role == User.Role.MANAGER:
-            return qs.filter(Q(requested_by=user) | Q(timeline__project__manager=user)).distinct()
-        return qs.filter(requested_by=user)
+            scoped = qs.all()
+        elif user.role == User.Role.MANAGER:
+            scoped = qs.filter(Q(requested_by=user) | Q(timeline__project__manager=user)).distinct()
+        else:
+            scoped = qs.filter(requested_by=user)
+        if status_filter:
+            scoped = scoped.filter(status=status_filter)
+        if request_type:
+            scoped = scoped.filter(request_type=request_type)
+        return scoped
 
     def get_permissions(self):
         if self.action in ('update', 'partial_update', 'destroy'):
@@ -515,7 +523,7 @@ class TimelineApprovalViewSet(viewsets.ModelViewSet):
         timeline = req.timeline
         if not timeline:
             return Response({'detail': 'Timeline no longer exists.'}, status=status.HTTP_404_NOT_FOUND)
-        ALLOWED = ['name', 'description', 'status', 'start_date', 'end_date']
+        ALLOWED = ['name', 'description', 'status', 'start_date', 'end_date', 'hours_allocated']
         SAFE_STATUSES = [s[0] for s in Timeline.Status.choices]
         changes = {}
         errors = {}
@@ -533,6 +541,14 @@ class TimelineApprovalViewSet(viewsets.ModelViewSet):
             elif field == 'status':
                 if value not in SAFE_STATUSES:
                     errors['status'] = 'Invalid status.'
+                    continue
+            elif field == 'hours_allocated':
+                try:
+                    value = int(value)
+                    if value < 0:
+                        raise ValueError
+                except (TypeError, ValueError):
+                    errors['hours_allocated'] = 'Hours allocated must be a non-negative integer.'
                     continue
             setattr(timeline, field, value)
             changes[field] = value

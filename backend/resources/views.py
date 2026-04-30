@@ -16,8 +16,8 @@ from accounts.permissions import IsAdmin, IsAdminOrManager
 from nexus.excel import workbook_response
 from notifications.utils import email_no_reply, notify_project_team, notify_user
 from timelines.models import Timeline
-from .models import ResourceProfile, TimeEntry
-from .serializers import ResourceProfileSerializer, TimeEntrySerializer
+from .models import ResourceProfile, TimeEntry, TimesheetLateEntryApproval
+from .serializers import ResourceProfileSerializer, TimeEntrySerializer, TimesheetLateEntryApprovalSerializer
 
 logger = logging.getLogger('nexus')
 
@@ -39,7 +39,17 @@ def _timesheet_approvers(entry):
     recipients = []
     if entry.resource.manager and entry.resource.manager.is_active and entry.resource.manager.role == User.Role.MANAGER:
         recipients.append(entry.resource.manager)
-    return recipients
+    project_manager = getattr(entry.project, 'manager', None)
+    if project_manager and project_manager.is_active and project_manager.role == User.Role.MANAGER:
+        recipients.append(project_manager)
+    deduped = []
+    seen = set()
+    for user in recipients:
+        if user.id in seen:
+            continue
+        seen.add(user.id)
+        deduped.append(user)
+    return deduped
 
 
 def _timesheet_stakeholders(entry):
@@ -105,7 +115,7 @@ class ResourceProfileViewSet(viewsets.ModelViewSet):
     ordering_fields = ['user__name', 'hourly_rate', 'availability', 'created_at']
 
     def get_permissions(self):
-        if self.action in ('create', 'update', 'partial_update', 'destroy', 'export'):
+        if self.action in ('create', 'update', 'partial_update', 'destroy', 'export', 'timesheet_report'):
             return [IsAdmin()]
         return [IsAuthenticated()]
 
@@ -130,7 +140,7 @@ class ResourceProfileViewSet(viewsets.ModelViewSet):
         if user.role == User.Role.ADMIN:
             return qs
         if user.role == User.Role.MANAGER:
-            return qs.filter(manager=user)
+            return qs.filter(Q(manager=user) | Q(user__assigned_projects__manager=user)).distinct()
         if user.role == User.Role.RESOURCE:
             return qs.filter(user=user)
         return qs.none()
@@ -194,6 +204,35 @@ class ResourceProfileViewSet(viewsets.ModelViewSet):
             )
         return Response({'availability': profile.availability})
 
+    @action(detail=True, methods=['get'], permission_classes=[IsAdmin])
+    def timesheet_report(self, request, pk=None):
+        profile = self.get_object()
+        entries = (
+            profile.timeentries
+            .select_related('project', 'timeline', 'approved_by')
+            .order_by('-date', '-created_at')
+        )
+        rows = [
+            [
+                entry.date.isoformat(),
+                entry.project.name if entry.project else '',
+                entry.timeline.name if entry.timeline else 'Project-level log',
+                float(entry.hours),
+                'Approved' if entry.approved else 'Pending',
+                entry.approved_by.name if entry.approved_by else '',
+                entry.approved_at.isoformat() if entry.approved_at else '',
+                (entry.description or '').strip(),
+            ]
+            for entry in entries
+        ]
+        filename = f"timesheet_{profile.user.name.replace(' ', '_').lower()}_{timezone.localdate().isoformat()}.xlsx"
+        return workbook_response(
+            filename=filename,
+            sheet_name='Timesheet',
+            headers=['Date', 'Project', 'Phase', 'Hours', 'Approval Status', 'Approved By', 'Approved At', 'Description'],
+            rows=rows,
+        )
+
 
 class TimeEntryViewSet(viewsets.ModelViewSet):
     queryset = TimeEntry.objects.select_related('resource__user', 'resource__manager', 'project__manager', 'timeline', 'approved_by')
@@ -209,7 +248,7 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         if user.role == User.Role.ADMIN:
             return qs
         if user.role == User.Role.MANAGER:
-            return qs.filter(resource__manager=user)
+            return qs.filter(Q(resource__manager=user) | Q(project__manager=user)).distinct()
         try:
             return qs.filter(resource=user.resource_profile)
         except ResourceProfile.DoesNotExist as exc:
@@ -225,8 +264,8 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         else:
             entry = serializer.save()
         _sync_timeline_hours(entry.timeline_id)
-        approver = entry.resource.manager
-        if approver and approver.is_active and approver.role == User.Role.MANAGER:
+        approvers = _timesheet_approvers(entry)
+        for approver in approvers:
             notify_user(
                 user=approver,
                 notif_type='update',
@@ -263,8 +302,9 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         entry = self.get_object()
         if request.user.role != User.Role.MANAGER:
             return Response({'detail': 'Only managers can approve time entries.'}, status=status.HTTP_403_FORBIDDEN)
-        if entry.resource.manager_id != request.user.id:
-            return Response({'detail': 'You can only approve time entries for resources assigned to you.'}, status=status.HTTP_403_FORBIDDEN)
+        can_approve = entry.resource.manager_id == request.user.id or entry.project.manager_id == request.user.id
+        if not can_approve:
+            return Response({'detail': 'You can only approve entries for resources or projects assigned to you.'}, status=status.HTTP_403_FORBIDDEN)
         if entry.approved:
             return Response({'detail': 'Already approved.'}, status=status.HTTP_400_BAD_REQUEST)
         entry.approved = True
@@ -282,3 +322,83 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         )
         _send_timesheet_approval_email(entry, request.user)
         return Response({'approved': True, 'approved_by': request.user.name})
+
+
+class TimesheetLateEntryApprovalViewSet(viewsets.ModelViewSet):
+    serializer_class = TimesheetLateEntryApprovalSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ['resource', 'status', 'date']
+    ordering_fields = ['date', 'created_at', 'resolved_at']
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = TimesheetLateEntryApproval.objects.select_related('resource__user', 'requested_by', 'resolved_by')
+        if user.role == User.Role.ADMIN:
+            return qs
+        if user.role == User.Role.MANAGER:
+            return qs.filter(Q(resource__manager=user) | Q(resource__user__assigned_projects__manager=user)).distinct()
+        try:
+            return qs.filter(resource=user.resource_profile)
+        except ResourceProfile.DoesNotExist as exc:
+            raise PermissionDenied('Your account does not have a resource profile.') from exc
+
+    def perform_create(self, serializer):
+        user = self.request.user
+        if user.role != User.Role.RESOURCE:
+            raise PermissionDenied('Only resources can request late timesheet approvals.')
+        if not hasattr(user, 'resource_profile'):
+            raise PermissionDenied('Your account does not have a resource profile.')
+        request_obj = serializer.save(resource=user.resource_profile, requested_by=user)
+        admins = list(User.objects.filter(role=User.Role.ADMIN, is_active=True))
+        if admins:
+            notify_project_team(
+                users=admins,
+                notif_type='update',
+                title=f'Late timesheet approval needed: {user.name}',
+                message=f'{user.name} requested late timesheet approval for {request_obj.date}.',
+                action_url='/approvals',
+            )
+
+    def get_permissions(self):
+        if self.action in ('update', 'partial_update', 'destroy', 'approve', 'reject'):
+            return [IsAdmin()]
+        return [IsAuthenticated()]
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAdmin])
+    def approve(self, request, pk=None):
+        req = self.get_object()
+        if req.status != TimesheetLateEntryApproval.Status.PENDING:
+            return Response({'detail': 'Already resolved.'}, status=status.HTTP_400_BAD_REQUEST)
+        req.status = TimesheetLateEntryApproval.Status.APPROVED
+        req.resolved_by = request.user
+        req.resolved_at = timezone.now()
+        req.admin_note = (request.data.get('admin_note') or '')[:500]
+        req.save(update_fields=['status', 'resolved_by', 'resolved_at', 'admin_note'])
+        notify_user(
+            user=req.resource.user,
+            notif_type='update',
+            title='Late timesheet request approved',
+            message=f'You can now submit timesheet for {req.date}.',
+            action_url='/timelines',
+        )
+        return Response({'detail': 'Approved.'})
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAdmin])
+    def reject(self, request, pk=None):
+        req = self.get_object()
+        if req.status != TimesheetLateEntryApproval.Status.PENDING:
+            return Response({'detail': 'Already resolved.'}, status=status.HTTP_400_BAD_REQUEST)
+        req.status = TimesheetLateEntryApproval.Status.REJECTED
+        req.resolved_by = request.user
+        req.resolved_at = timezone.now()
+        req.admin_note = (request.data.get('admin_note') or '')[:500]
+        req.save(update_fields=['status', 'resolved_by', 'resolved_at', 'admin_note'])
+        notify_user(
+            user=req.resource.user,
+            notif_type='update',
+            title='Late timesheet request rejected',
+            message=f'Your request for {req.date} was rejected.',
+            action_url='/timelines',
+        )
+        return Response({'detail': 'Rejected.'})

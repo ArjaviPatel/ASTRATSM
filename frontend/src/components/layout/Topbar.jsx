@@ -83,7 +83,7 @@ export default function Topbar({ sideW, unreadCount = 0, isMobile, mobileOpen = 
             padding: isMobile ? '6px' : '5px 10px',
             display: 'flex', alignItems: 'center', gap: 6,
             color: 'var(--text-2)',
-            fontSize: '12px', fontWeight: 500,
+            fontSize: '14px', fontWeight: 500,
             transition: 'all var(--t-fast)',
           }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)' }}
@@ -112,7 +112,7 @@ export default function Topbar({ sideW, unreadCount = 0, isMobile, mobileOpen = 
               position: 'absolute', top: 4, right: 4,
               minWidth: 16, height: 16, borderRadius: 8,
               background: 'var(--accent)', color: 'var(--text-0)',
-              fontSize: '10px', fontWeight: 800,
+              fontSize: '12px', fontWeight: 800,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               lineHeight: 1, padding: '0 3px',
               boxShadow: '0 0 0 2px var(--bg-0)',

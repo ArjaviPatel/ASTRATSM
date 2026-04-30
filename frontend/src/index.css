@@ -131,7 +131,7 @@
     linear-gradient(180deg, rgba(255, 255, 255, 0.40) 0%, rgba(255, 255, 255, 0.12) 100%);
 }
 
-html { font-size: 16px; }
+html { font-size: 18px; }
 body {
   font-family: var(--font-body);
   background: var(--page-gradient), var(--bg-0);
@@ -291,14 +291,14 @@ input:disabled, textarea:disabled, select:disabled {
   padding: 10px 14px;
   text-align: left;
   border-bottom: 1px solid var(--border);
-  font-size: 13px;
+  font-size: 15px;
   white-space: nowrap;
 }
 .table-scroll th {
   background: var(--bg-2);
   font-weight: 600;
   color: var(--text-2);
-  font-size: 11px;
+  font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }

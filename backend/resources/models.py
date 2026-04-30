@@ -75,3 +75,48 @@ class TimeEntry(models.Model):
     def __str__(self):
         scope = self.timeline.name if self.timeline else self.project.name
         return f'{self.resource.user.name} | {scope} | {self.date} | {self.hours}h'
+
+
+class TimesheetLateEntryApproval(models.Model):
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending'
+        APPROVED = 'approved', 'Approved'
+        REJECTED = 'rejected', 'Rejected'
+
+    resource = models.ForeignKey(ResourceProfile, on_delete=models.CASCADE, related_name='late_entry_approvals')
+    date = models.DateField(db_index=True)
+    reason = models.TextField(blank=True)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING, db_index=True)
+    admin_note = models.TextField(blank=True)
+    requested_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='late_entry_requests')
+    resolved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='resolved_late_entry_requests')
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['resource', 'date'],
+                condition=models.Q(status='pending'),
+                name='unique_pending_late_entry_per_day',
+            )
+        ]
+
+    def __str__(self):
+        return f'{self.resource.user.name} late entry {self.date} [{self.status}]'
+
+
+class TimesheetReminderLog(models.Model):
+    resource = models.ForeignKey(ResourceProfile, on_delete=models.CASCADE, related_name='timesheet_reminder_logs')
+    date = models.DateField(db_index=True)
+    sent_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-sent_at']
+        constraints = [
+            models.UniqueConstraint(fields=['resource', 'date'], name='unique_timesheet_reminder_per_resource_day')
+        ]
+
+    def __str__(self):
+        return f'{self.resource.user.name} reminder {self.date}'

@@ -143,7 +143,7 @@ export default function LoginPage() {
               'Resource utilization tracking',
               'Two-step email OTP sign-in',
             ].map(f => (
-              <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', color: 'var(--text-2)', fontSize: '13px' }}>
+              <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', color: 'var(--text-2)', fontSize: '15px' }}>
                 <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />
                 {f}
               </div>
@@ -164,12 +164,12 @@ export default function LoginPage() {
           </div>
 
           {error && (
-            <div style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 'var(--r-md)', padding: '10px 14px', color: 'var(--danger)', fontSize: '13px', marginBottom: 'var(--sp-5)' }}>
+            <div style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 'var(--r-md)', padding: '10px 14px', color: 'var(--danger)', fontSize: '15px', marginBottom: 'var(--sp-5)' }}>
               {error}
             </div>
           )}
           {info && (
-            <div style={{ background: 'rgba(35,114,39,0.1)', border: '1px solid rgba(35,114,39,0.28)', borderRadius: 'var(--r-md)', padding: '10px 14px', color: 'var(--success)', fontSize: '13px', marginBottom: 'var(--sp-5)' }}>
+            <div style={{ background: 'rgba(35,114,39,0.1)', border: '1px solid rgba(35,114,39,0.28)', borderRadius: 'var(--r-md)', padding: '10px 14px', color: 'var(--success)', fontSize: '15px', marginBottom: 'var(--sp-5)' }}>
               {info}
             </div>
           )}
@@ -177,7 +177,7 @@ export default function LoginPage() {
           {!challenge ? (
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Email</label>
+                <label style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Email</label>
                 <div style={{ position: 'relative' }}>
                   <Mail size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)', pointerEvents: 'none' }} />
                   <input
@@ -189,7 +189,7 @@ export default function LoginPage() {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Password</label>
+                <label style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Password</label>
                 <div style={{ position: 'relative' }}>
                   <Lock size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)', pointerEvents: 'none' }} />
                   <input
@@ -211,7 +211,7 @@ export default function LoginPage() {
           ) : (
             <form onSubmit={handleVerifyOtp} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>One-Time Password</label>
+                <label style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>One-Time Password</label>
                 <div style={{ position: 'relative' }}>
                   <Shield size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)', pointerEvents: 'none' }} />
                   <input
@@ -224,7 +224,7 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--sp-3)', fontSize: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--sp-3)', fontSize: '14px' }}>
                 <span style={{ color: otpRemaining > 0 ? 'var(--warning)' : 'var(--danger)', fontWeight: 600 }}>
                   {otpRemaining > 0 ? `OTP expires in ${formatOtpCountdown(otpRemaining)}` : `OTP expired after ${otpExpiresIn} seconds`}
                 </span>
@@ -236,13 +236,13 @@ export default function LoginPage() {
               </button>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--sp-3)' }}>
-                <button type="button" onClick={goBackToPassword} style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', fontSize: '12px' }}>Back</button>
-                <button type="button" onClick={resendOtp} disabled={loading || otpRemaining > 0} style={{ background: 'none', border: 'none', color: (loading || otpRemaining > 0) ? 'var(--text-3)' : 'var(--accent)', cursor: (loading || otpRemaining > 0) ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 600 }}>Resend OTP</button>
+                <button type="button" onClick={goBackToPassword} style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', fontSize: '14px' }}>Back</button>
+                <button type="button" onClick={resendOtp} disabled={loading || otpRemaining > 0} style={{ background: 'none', border: 'none', color: (loading || otpRemaining > 0) ? 'var(--text-3)' : 'var(--accent)', cursor: (loading || otpRemaining > 0) ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 600 }}>Resend OTP</button>
               </div>
             </form>
           )}
 
-          <p style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-3)', marginTop: 'var(--sp-6)' }}>
+          <p style={{ textAlign: 'center', fontSize: '14px', color: 'var(--text-3)', marginTop: 'var(--sp-6)' }}>
             Login is rate limited to 10 attempts per minute
           </p>
         </div>

@@ -190,7 +190,7 @@ export default function Sidebar({ collapsed, onToggle, unreadCount, approvalCoun
             display: 'flex', alignItems: 'center', gap: 12,
             padding: collapsed && !isMobile ? '10px 0' : '10px 16px',
             justifyContent: collapsed && !isMobile ? 'center' : 'flex-start',
-            color: 'var(--danger)', fontSize: '13px', fontWeight: 500,
+            color: 'var(--danger)', fontSize: '15px', fontWeight: 500,
             transition: 'background var(--t-fast)',
           }}
           onMouseEnter={e => e.currentTarget.style.background = 'rgba(248,113,113,0.08)'}
@@ -211,12 +211,12 @@ export default function Sidebar({ collapsed, onToggle, unreadCount, approvalCoun
           <Avatar name={user.name} src={user.avatar || user.avatar_url} size={32} role={user.role} />
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{
-              fontSize: '13px', fontWeight: 600, color: 'var(--text-0)',
+              fontSize: '15px', fontWeight: 600, color: 'var(--text-0)',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>
               {user.name}
             </div>
-            <div style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'capitalize' }}>
+            <div style={{ fontSize: '13px', color: 'var(--text-3)', textTransform: 'capitalize' }}>
               {user.role}
             </div>
           </div>
@@ -237,7 +237,7 @@ function NavItem({ to, icon: Icon, label, collapsed, badge, badgeColor, onMobile
         padding: collapsed ? '10px 0' : '10px 16px',
         justifyContent: collapsed ? 'center' : 'flex-start',
         color: isActive ? 'var(--accent)' : 'var(--text-2)',
-        fontSize: '13px', fontWeight: isActive ? 600 : 400,
+        fontSize: '15px', fontWeight: isActive ? 600 : 400,
         background: isActive ? 'var(--accent-dim)' : 'transparent',
         borderRight: isActive ? '2px solid var(--accent)' : '2px solid transparent',
         transition: 'all var(--t-fast)',
@@ -261,7 +261,7 @@ function NavItem({ to, icon: Icon, label, collapsed, badge, badgeColor, onMobile
       {!collapsed && badge && (
         <span style={{
           marginLeft: 'auto', background: bColor, color: 'var(--text-4)',
-          fontSize: '10px', fontWeight: 700, padding: '1px 6px',
+          fontSize: '12px', fontWeight: 700, padding: '1px 6px',
           borderRadius: 'var(--r-full)', minWidth: 18, textAlign: 'center',
         }}>
           {badge > 99 ? '99+' : badge}

@@ -29,9 +29,9 @@ export function Btn({ children, variant = 'primary', size = 'md', loading, icon,
     border: '1px solid transparent', borderRadius: 'var(--r-md)',
     transition: 'all var(--t-mid)', whiteSpace: 'nowrap', letterSpacing: '0.01em',
     opacity: disabled || loading ? 0.5 : 1,
-    ...(size === 'sm' ? { fontSize: '12px', padding: '5px 10px' } :
+    ...(size === 'sm' ? { fontSize: '14px', padding: '5px 10px' } :
         size === 'lg' ? { fontSize: '15px', padding: '10px 20px' } :
-                        { fontSize: '13px', padding: '7px 14px' }),
+                        { fontSize: '15px', padding: '7px 14px' }),
     ...(variant === 'primary' ? {
       background: 'var(--accent)', color: 'var(--text-0)', borderColor: 'var(--accent)', boxShadow: 'var(--shadow-accent)',
     } : variant === 'secondary' ? {
@@ -55,7 +55,7 @@ export function Badge({ children, color, className }) {
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: '4px',
-      fontSize: '11px', fontWeight: 600, padding: '2px 8px',
+      fontSize: '13px', fontWeight: 600, padding: '2px 8px',
       borderRadius: 'var(--r-full)', letterSpacing: '0.06em', textTransform: 'uppercase',
       background: color ? `${color}20` : 'var(--bg-3)',
       color: color || 'var(--text-1)',
@@ -148,7 +148,7 @@ export function StatCard({ label, value, sub, icon: Icon, accent, trend, onClick
         boxShadow: hovered && isClickable ? 'var(--shadow-md)' : 'none',
       }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+        <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
           {label}
         </span>
         {Icon && (
@@ -165,9 +165,9 @@ export function StatCard({ label, value, sub, icon: Icon, accent, trend, onClick
       <div style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', fontWeight: 700, lineHeight: 1, color: 'var(--text-0)' }}>
         {value}
       </div>
-      {sub && <div style={{ fontSize: '12px', color: 'var(--text-2)' }}>{sub}</div>}
+      {sub && <div style={{ fontSize: '14px', color: 'var(--text-2)' }}>{sub}</div>}
       {isClickable && (
-        <div style={{ fontSize: '10px', color: accent || 'var(--text-3)', opacity: hovered ? 1 : 0, transition: 'opacity var(--t-fast)', letterSpacing: '0.05em' }}>
+        <div style={{ fontSize: '12px', color: accent || 'var(--text-3)', opacity: hovered ? 1 : 0, transition: 'opacity var(--t-fast)', letterSpacing: '0.05em' }}>
           View all →
         </div>
       )}
@@ -194,7 +194,7 @@ export function ProgressBar({ value = 0, color, height = 4, showLabel }) {
           transition: 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
         }} />
       </div>
-      {showLabel && <span style={{ fontSize: '11px', color: 'var(--text-2)', fontFamily: 'var(--font-mono)', minWidth: '30px' }}>{value}%</span>}
+      {showLabel && <span style={{ fontSize: '13px', color: 'var(--text-2)', fontFamily: 'var(--font-mono)', minWidth: '30px' }}>{value}%</span>}
     </div>
   )
 }
@@ -203,7 +203,7 @@ export function ProgressBar({ value = 0, color, height = 4, showLabel }) {
 export function Input({ label, error, icon: Icon, ...props }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-      {label && <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</label>}
+      {label && <label style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</label>}
       <div style={{ position: 'relative' }}>
         {Icon && <Icon size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)', pointerEvents: 'none' }} />}
         <input
@@ -219,7 +219,7 @@ export function Input({ label, error, icon: Icon, ...props }) {
           {...props}
         />
       </div>
-      {error && <span style={{ fontSize: '12px', color: 'var(--danger)' }}>{error}</span>}
+      {error && <span style={{ fontSize: '14px', color: 'var(--danger)' }}>{error}</span>}
     </div>
   )
 }
@@ -228,7 +228,7 @@ export function Input({ label, error, icon: Icon, ...props }) {
 export function Select({ label, error, children, ...props }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-      {label && <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</label>}
+      {label && <label style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</label>}
       <select
         style={{
           width: '100%', background: 'var(--bg-2)', border: `1px solid ${error ? 'var(--danger)' : 'var(--border)'}`,
@@ -240,7 +240,7 @@ export function Select({ label, error, children, ...props }) {
       >
         {children}
       </select>
-      {error && <span style={{ fontSize: '12px', color: 'var(--danger)' }}>{error}</span>}
+      {error && <span style={{ fontSize: '14px', color: 'var(--danger)' }}>{error}</span>}
     </div>
   )
 }
@@ -249,7 +249,7 @@ export function Select({ label, error, children, ...props }) {
 export function Textarea({ label, error, ...props }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-      {label && <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</label>}
+      {label && <label style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</label>}
       <textarea
         style={{
           width: '100%', background: 'var(--bg-2)', border: `1px solid ${error ? 'var(--danger)' : 'var(--border)'}`,
@@ -262,7 +262,7 @@ export function Textarea({ label, error, ...props }) {
         onBlur={e => { e.target.style.borderColor = error ? 'var(--danger)' : 'var(--border)'; e.target.style.boxShadow = 'inset 0 1px 0 rgba(255,255,255,0.02)' }}
         {...props}
       />
-      {error && <span style={{ fontSize: '12px', color: 'var(--danger)' }}>{error}</span>}
+      {error && <span style={{ fontSize: '14px', color: 'var(--danger)' }}>{error}</span>}
     </div>
   )
 }
@@ -288,7 +288,7 @@ export function Modal({ open, onClose, title, children, width = 520, fullscreen 
           <button onClick={onClose} style={{
             background: 'none', border: '1px solid var(--border)', color: 'var(--text-2)',
             cursor: 'pointer', padding: '6px 14px', borderRadius: 'var(--r-md)',
-            fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6,
+            fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6,
             transition: 'all var(--t-fast)',
           }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--danger)'; e.currentTarget.style.color = 'var(--danger)' }}
@@ -385,7 +385,7 @@ export function Table({ columns, data, onRowClick, loading }) {
             {columns.map(col => (
               <th key={col.key} style={{
                 textAlign: 'left', padding: '10px 16px',
-                fontSize: '11px', fontWeight: 600, color: 'var(--text-3)',
+                fontSize: '13px', fontWeight: 600, color: 'var(--text-3)',
                 textTransform: 'uppercase', letterSpacing: '0.08em',
                 borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap',
               }}>
@@ -421,7 +421,7 @@ export function Table({ columns, data, onRowClick, loading }) {
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
             >
               {columns.map(col => (
-                <td key={col.key} style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-1)' }}>
+                <td key={col.key} style={{ padding: '12px 16px', fontSize: '15px', color: 'var(--text-1)' }}>
                   {col.render ? col.render(row[col.key], row) : row[col.key] ?? '—'}
                 </td>
               ))}
@@ -429,6 +429,57 @@ export function Table({ columns, data, onRowClick, loading }) {
           ))}
         </tbody>
       </table>
+    </div>
+  )
+}
+
+export function Pagination({ page = 1, totalPages = 1, total = 0, pageSize = 25, onPageChange, loading }) {
+  const pages = Math.max(1, Number(totalPages) || 1)
+  const current = Math.min(Math.max(1, Number(page) || 1), pages)
+  const start = total ? (current - 1) * pageSize + 1 : 0
+  const end = total ? Math.min(current * pageSize, total) : 0
+  const go = (next) => {
+    const value = Math.min(Math.max(1, next), pages)
+    if (value !== current) onPageChange?.(value)
+  }
+
+  if (pages <= 1 && !total) return null
+
+  const buttonStyle = (disabled) => ({
+    background: disabled ? 'var(--bg-2)' : 'var(--bg-1)',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--r-md)',
+    color: disabled ? 'var(--text-3)' : 'var(--text-1)',
+    fontSize: '14px',
+    fontWeight: 600,
+    padding: '7px 11px',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    opacity: loading ? 0.6 : 1,
+  })
+
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 'var(--sp-3)',
+      flexWrap: 'wrap',
+      padding: '12px 0',
+    }}>
+      <div style={{ fontSize: '14px', color: 'var(--text-3)' }}>
+        {total ? `Showing ${start}-${end} of ${total}` : `Page ${current} of ${pages}`}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <button type="button" disabled={current <= 1 || loading} onClick={() => go(current - 1)} style={buttonStyle(current <= 1 || loading)}>
+          Previous
+        </button>
+        <span style={{ fontSize: '14px', color: 'var(--text-2)', minWidth: 72, textAlign: 'center' }}>
+          {current} / {pages}
+        </span>
+        <button type="button" disabled={current >= pages || loading} onClick={() => go(current + 1)} style={buttonStyle(current >= pages || loading)}>
+          Next
+        </button>
+      </div>
     </div>
   )
 }
@@ -442,7 +493,7 @@ export function Alert({ type = 'info', message, onClose }) {
       display: 'flex', alignItems: 'center', gap: 'var(--sp-3)',
       padding: '12px 16px', borderRadius: 'var(--r-md)',
       background: `${c}15`, border: `1px solid ${c}40`, color: c,
-      fontSize: '13px',
+      fontSize: '15px',
     }}>
       <span style={{ flex: 1 }}>{message}</span>
       {onClose && <button onClick={onClose} style={{ background: 'none', border: 'none', color, cursor: 'pointer', padding: 0, lineHeight: 0 }}><XIcon /></button>}
@@ -468,7 +519,7 @@ export function Tabs({ tabs, active, onChange }) {
       {tabs.map(tab => (
         <button key={tab.id} onClick={() => onChange(tab.id)} style={{
           background: 'none', border: 'none', cursor: 'pointer',
-          padding: '8px 16px', fontSize: '13px', fontWeight: 500,
+          padding: '8px 16px', fontSize: '15px', fontWeight: 500,
           color: active === tab.id ? 'var(--accent)' : 'var(--text-2)',
           borderBottom: `2px solid ${active === tab.id ? 'var(--accent)' : 'transparent'}`,
           transition: 'all var(--t-fast)', display: 'flex', alignItems: 'center', gap: '6px',
@@ -480,7 +531,7 @@ export function Tabs({ tabs, active, onChange }) {
             <span style={{
               background: active === tab.id ? 'var(--accent)' : 'var(--bg-3)',
               color: active === tab.id ? '#0a0a0a' : 'var(--text-2)',
-              fontSize: '10px', fontWeight: 700, padding: '1px 6px',
+              fontSize: '12px', fontWeight: 700, padding: '1px 6px',
               borderRadius: 'var(--r-full)', minWidth: 18, textAlign: 'center',
             }}>{tab.count}</span>
           )}

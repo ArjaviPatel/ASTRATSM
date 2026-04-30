@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Plus, FolderKanban, Search, Calendar, Download } from 'lucide-react'
-import { projectsApi, clientsApi, resourcesApi } from '@/api/index.js'
-import { Btn, Badge, EmptyState, Modal, Input, Select, Textarea, Spinner } from '@/components/ui/index.jsx'
+import { projectsApi, clientsApi, resourcesApi, authApi } from '@/api/index.js'
+import { Btn, Badge, EmptyState, Modal, Input, Select, Textarea, Spinner, Pagination } from '@/components/ui/index.jsx'
 import { STATUS_COLOR, STATUS_LABEL, PRIORITY_COLOR, PRIORITY_LABEL, downloadBlob, formatDate, extractError } from '@/utils/index.js'
 import { useAuthStore } from '@/stores/authStore.js'
 
@@ -23,6 +23,8 @@ function countWorkingDays(startStr, endStr) {
   return count
 }
 
+const PAGE_SIZE = 12
+
 export default function ProjectsPage() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -36,7 +38,9 @@ export default function ProjectsPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState(params.get('status') || '')
   const [priorityFilter, setPriorityFilter] = useState(params.get('priority') || '')
+  const [clientFilter, setClientFilter] = useState(params.get('client') || '')
   const [overBudgetOnly, setOverBudgetOnly] = useState(params.get('filter') === 'over_budget')
+  const [page, setPage] = useState(1)
   const [showCreate, setShowCreate] = useState(false)
   const [exporting, setExporting] = useState(false)
 
@@ -44,20 +48,35 @@ export default function ProjectsPage() {
     const p = new URLSearchParams(location.search)
     setStatusFilter(p.get('status') || '')
     setPriorityFilter(p.get('priority') || '')
+    setClientFilter(p.get('client') || '')
     setOverBudgetOnly(p.get('filter') === 'over_budget')
   }, [location.search])
 
+  useEffect(() => {
+    setPage(1)
+  }, [search, statusFilter, priorityFilter, clientFilter, overBudgetOnly])
+
   const { data, isLoading } = useQuery({
-    queryKey: ['projects', search, statusFilter, priorityFilter, overBudgetOnly],
+    queryKey: ['projects', search, statusFilter, priorityFilter, clientFilter, overBudgetOnly, page],
     queryFn: () => projectsApi.list({
       search: search || undefined,
       status: statusFilter || undefined,
       priority: priorityFilter || undefined,
-      page_size: 500,
-    }).then(r => r.data.results || r.data),
+      client: clientFilter || undefined,
+      over_budget: overBudgetOnly ? 'true' : undefined,
+      page,
+      page_size: PAGE_SIZE,
+    }).then(r => r.data),
   })
 
-  const allProjects = data || []
+  const { data: clientsList } = useQuery({
+    queryKey: ['clients-filter-list'],
+    queryFn: () => clientsApi.list({ page_size: 500 }).then(r => r.data.results || r.data),
+  })
+
+  const projects = data?.results || data || []
+  const total = data?.count ?? projects.length
+  const totalPages = data?.total_pages ?? 1
 
   async function exportProjects() {
     setExporting(true)
@@ -68,18 +87,14 @@ export default function ProjectsPage() {
       setExporting(false)
     }
   }
-  const projects = overBudgetOnly
-    ? allProjects.filter(p => p.is_over_budget || (p.spent > p.budget && p.budget > 0))
-    : allProjects
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-6)' }}>
       <div className="mobile-center-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--sp-3)' }}>
         <div>
           <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '1.8rem', letterSpacing: '-0.02em' }}>Projects</h1>
           <p style={{ color: 'var(--text-2)', fontSize: '14px', marginTop: 4 }}>
-            {projects.length} total
-            {isManager && <span style={{ color: 'var(--info)', marginLeft: 8, fontSize: '12px', background: 'rgba(96,165,250,0.1)', border: '1px solid rgba(96,165,250,0.25)', padding: '2px 8px', borderRadius: 'var(--r-full)' }}>Your assigned projects</span>}
+            {total} total
+            {isManager && <span style={{ color: 'var(--info)', marginLeft: 8, fontSize: '14px', background: 'rgba(96,165,250,0.1)', border: '1px solid rgba(96,165,250,0.25)', padding: '2px 8px', borderRadius: 'var(--r-full)' }}>Your assigned projects</span>}
           </p>
         </div>
         <div style={{ display: 'flex', gap: 'var(--sp-2)', flexWrap: 'wrap' }}>
@@ -91,8 +106,8 @@ export default function ProjectsPage() {
       <div className="mobile-center-search" style={{ display: 'flex', gap: 'var(--sp-3)', flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
           <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)', pointerEvents: 'none' }} />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search projects…"
-            style={{ width: '100%', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '13px', padding: '8px 12px 8px 32px', outline: 'none' }} />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search projects or client name…"
+            style={{ width: '100%', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '15px', padding: '8px 12px 8px 32px', outline: 'none' }} />
         </div>
         <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setOverBudgetOnly(false) }} style={fss}>
           <option value="">All statuses</option>
@@ -102,9 +117,13 @@ export default function ProjectsPage() {
           <option value="">All priorities</option>
           {Object.entries(PRIORITY_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
-        {(statusFilter || priorityFilter || overBudgetOnly || search) && (
-          <button onClick={() => { setSearch(''); setStatusFilter(''); setPriorityFilter(''); setOverBudgetOnly(false) }}
-            style={{ background: 'none', border: 'none', color: 'var(--text-3)', fontSize: '12px', cursor: 'pointer', padding: '4px 8px' }}>
+        <select value={clientFilter} onChange={e => { setClientFilter(e.target.value); setOverBudgetOnly(false) }} style={fss}>
+          <option value="">All clients</option>
+          {(clientsList || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+        {(statusFilter || priorityFilter || clientFilter || overBudgetOnly || search) && (
+          <button onClick={() => { setSearch(''); setStatusFilter(''); setPriorityFilter(''); setClientFilter(''); setOverBudgetOnly(false) }}
+            style={{ background: 'none', border: 'none', color: 'var(--text-3)', fontSize: '14px', cursor: 'pointer', padding: '4px 8px' }}>
             ✕ Clear filters
           </button>
         )}
@@ -122,7 +141,16 @@ export default function ProjectsPage() {
         </div>
       )}
 
-      {showCreate && <CreateProjectModal onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); qc.invalidateQueries(['projects']) }} />}
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        pageSize={PAGE_SIZE}
+        onPageChange={setPage}
+        loading={isLoading}
+      />
+
+      {showCreate && <CreateProjectModal onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); setPage(1); qc.invalidateQueries({ queryKey: ['projects'] }); qc.invalidateQueries({ queryKey: ['clients'] }) }} />}
     </div>
   )
 }
@@ -137,16 +165,16 @@ function ProjectCard({ project: p, onClick }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 'var(--sp-2)' }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
-          <div style={{ fontSize: '12px', color: 'var(--text-3)', marginTop: 2 }}>{p.client_name || '—'}</div>
+          <div style={{ fontSize: '14px', color: 'var(--text-3)', marginTop: 2 }}>{p.client_name || '—'}</div>
         </div>
         <Badge color={PRIORITY_COLOR[p.priority]}>{PRIORITY_LABEL[p.priority]}</Badge>
       </div>
       {p.description && (
-        <div style={{ fontSize: '12px', color: 'var(--text-2)', lineHeight: 1.5, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{p.description}</div>
+        <div style={{ fontSize: '14px', color: 'var(--text-2)', lineHeight: 1.5, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{p.description}</div>
       )}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Badge color={STATUS_COLOR[p.status]}>{STATUS_LABEL[p.status]}</Badge>
-        {p.end_date && <span style={{ fontSize: '11px', color: 'var(--text-3)', fontFamily: 'var(--font-mono)' }}>Due {formatDate(p.end_date, 'MMM d')}</span>}
+        {p.end_date && <span style={{ fontSize: '13px', color: 'var(--text-3)', fontFamily: 'var(--font-mono)' }}>Due {formatDate(p.end_date, 'MMM d')}</span>}
       </div>
       {team.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', paddingTop: 'var(--sp-2)', borderTop: '1px solid var(--border)' }}>
@@ -154,13 +182,13 @@ function ProjectCard({ project: p, onClick }) {
             {team.slice(0, 5).map((r, i) => {
               const name = r.name || r.user_detail?.name || '?'
               return (
-                <div key={r.id || i} title={name} style={{ width: 26, height: 26, borderRadius: '50%', background: 'var(--bg-3)', border: '2px solid var(--bg-1)', marginLeft: i > 0 ? -8 : 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 700, color: 'var(--accent)' }}>
+                <div key={r.id || i} title={name} style={{ width: 26, height: 26, borderRadius: '50%', background: 'var(--bg-3)', border: '2px solid var(--bg-1)', marginLeft: i > 0 ? -8 : 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, color: 'var(--accent)' }}>
                   {name[0].toUpperCase()}
                 </div>
               )
             })}
           </div>
-          <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>{team.length} member{team.length !== 1 ? 's' : ''}{team.length > 5 ? ` (+${team.length - 5} more)` : ''}</span>
+          <span style={{ fontSize: '13px', color: 'var(--text-3)' }}>{team.length} member{team.length !== 1 ? 's' : ''}{team.length > 5 ? ` (+${team.length - 5} more)` : ''}</span>
         </div>
       )}
     </div>
@@ -188,14 +216,14 @@ export function ResourceChip({ r, selected, onBench, onClick, accentBorder }) {
       border: `1px solid ${selected ? 'var(--accent)' : accentBorder ? 'rgba(96,165,250,0.35)' : 'var(--border)'}`,
       background: selected ? 'var(--accent-dim)' : 'var(--bg-2)',
       color: selected ? 'var(--accent)' : 'var(--text-2)',
-      fontSize: '12px', fontWeight: selected ? 600 : 400,
+      fontSize: '14px', fontWeight: selected ? 600 : 400,
       transition: 'all var(--t-fast)',
     }}>
       <div style={{ width: 20, height: 20, borderRadius: '50%', background: selected ? 'var(--accent)' : 'var(--bg-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 700, color: selected ? '#0a0a0a' : 'var(--text-3)' }}>
         {name[0].toUpperCase()}
       </div>
       <span>{name}</span>
-      {level && <span style={{ fontSize: '10px', opacity: 0.65 }}>{level}</span>}
+      {level && <span style={{ fontSize: '12px', opacity: 0.65 }}>{level}</span>}
       <span title={onBench ? 'On Bench' : 'Active'} style={{ width: 7, height: 7, borderRadius: '50%', background: onBench ? 'var(--success)' : 'var(--warning)', flexShrink: 0 }} />
     </div>
   )
@@ -219,7 +247,7 @@ export function ResourceAssignSection({ selectedResources, setSelectedResources,
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-        <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-2)' }}>
+        <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-2)' }}>
           Assign Resources{selectedResources.length > 0 && <span style={{ color: 'var(--accent)', marginLeft: 4 }}>({selectedResources.length} selected)</span>}
         </div>
         <div style={{ display: 'flex', gap: 3, background: 'var(--bg-3)', borderRadius: 'var(--r-md)', padding: 3 }}>
@@ -228,7 +256,7 @@ export function ResourceAssignSection({ selectedResources, setSelectedResources,
               background: benchFilter === val ? 'var(--bg-1)' : 'transparent',
               border: 'none', borderRadius: 'var(--r-sm)',
               color: benchFilter === val ? 'var(--text-0)' : 'var(--text-3)',
-              fontSize: '11px', fontWeight: benchFilter === val ? 600 : 400,
+              fontSize: '13px', fontWeight: benchFilter === val ? 600 : 400,
               padding: '3px 9px', cursor: 'pointer', transition: 'all var(--t-fast)',
             }}>{label}</button>
           ))}
@@ -236,13 +264,13 @@ export function ResourceAssignSection({ selectedResources, setSelectedResources,
       </div>
 
       {/* Bench/Active legend */}
-      <div style={{ display: 'flex', gap: 12, fontSize: '11px', color: 'var(--text-3)' }}>
+      <div style={{ display: 'flex', gap: 12, fontSize: '13px', color: 'var(--text-3)' }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }} /> On Bench (available)</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--warning)', display: 'inline-block' }} /> Active (on project)</span>
       </div>
 
       {allResources.length === 0 ? (
-        <div style={{ fontSize: '12px', color: 'var(--text-3)', padding: '8px 12px', background: 'var(--bg-2)', borderRadius: 'var(--r-md)' }}>No resources available</div>
+        <div style={{ fontSize: '14px', color: 'var(--text-3)', padding: '8px 12px', background: 'var(--bg-2)', borderRadius: 'var(--r-md)' }}>No resources available</div>
       ) : (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--sp-2)' }}>
           {filtered.map(r => {
@@ -259,7 +287,7 @@ export function ResourceAssignSection({ selectedResources, setSelectedResources,
 function CreateProjectModal({ onClose, onCreated }) {
   const [form, setForm] = useState({
     project_id: '', description: '', client: '', status: 'planning', priority: 'medium',
-    start_date: '', end_date: '', budget: '',
+    start_date: '', end_date: '', budget: '', manager: '',
     resource_L1: '', resource_L2: '', resource_L3: '', resource_L4: '',
     activity: '',
   })
@@ -274,6 +302,7 @@ function CreateProjectModal({ onClose, onCreated }) {
 
   const { data: clients } = useQuery({ queryKey: ['clients-all'], queryFn: () => clientsApi.list({ page_size: 500 }).then(r => r.data.results || r.data) })
   const { data: resourcesData } = useQuery({ queryKey: ['resources-dropdown'], queryFn: () => resourcesApi.list({ page_size: 500 }).then(r => r.data.results || r.data) })
+  const { data: managers } = useQuery({ queryKey: ['project-create-managers'], queryFn: () => authApi.users({ role: 'manager', is_active: true, page_size: 500 }).then(r => r.data.results || r.data) })
   const allResources = (resourcesData || []).filter(r => r.user_detail?.is_active)
 
   const filteredClients = (clients || []).filter(c => c.name.toLowerCase().includes(clientSearch.toLowerCase()))
@@ -303,6 +332,7 @@ function CreateProjectModal({ onClose, onCreated }) {
         resources: selectedResources,
       }
       if (form.client) payload.client = form.client
+      if (form.manager) payload.manager = form.manager
       if (!payload.start_date) delete payload.start_date
       if (!payload.end_date) delete payload.end_date
       await projectsApi.create(payload)
@@ -319,38 +349,42 @@ function CreateProjectModal({ onClose, onCreated }) {
   return (
     <Modal open onClose={onClose} title="New Project" fullscreen>
       <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
-        {error && <div style={{ color: 'var(--danger)', fontSize: '13px', background: 'rgba(248,113,113,0.1)', padding: '8px 12px', borderRadius: 'var(--r-md)' }}>{error}</div>}
+        {error && <div style={{ color: 'var(--danger)', fontSize: '15px', background: 'rgba(248,113,113,0.1)', padding: '8px 12px', borderRadius: 'var(--r-md)' }}>{error}</div>}
 
         <Input label="Project ID" value={form.project_id} onChange={e => f('project_id', e.target.value)} required placeholder="e.g. 12" />
         <Textarea label="Description" value={form.description} onChange={e => f('description', e.target.value)} placeholder="Project overview…" />
 
         {/* Client — searchable */}
         <div style={{ position: 'relative' }}>
-          <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-2)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Client</div>
+          <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-2)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Client</div>
           <input value={clientSearch}
             onChange={e => { setClientSearch(e.target.value); setShowClientDropdown(true); if (!e.target.value) clearClient() }}
             onFocus={() => setShowClientDropdown(true)}
             onBlur={() => setTimeout(() => setShowClientDropdown(false), 150)}
             placeholder="Search client name…"
-            style={{ width: '100%', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '13px', padding: '8px 12px', outline: 'none', boxSizing: 'border-box' }} />
+            style={{ width: '100%', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '15px', padding: '8px 12px', outline: 'none', boxSizing: 'border-box' }} />
           {showClientDropdown && (
             <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200, background: 'var(--bg-1)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', maxHeight: 200, overflowY: 'auto', marginTop: 4, boxShadow: 'var(--shadow-md)' }}>
-              <div onMouseDown={clearClient} style={{ padding: '8px 12px', fontSize: '13px', color: 'var(--text-3)', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
+              <div onMouseDown={clearClient} style={{ padding: '8px 12px', fontSize: '15px', color: 'var(--text-3)', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
                 onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-2)'}
                 onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>— No client —</div>
               {filteredClients.map(c => (
                 <div key={c.id} onMouseDown={() => selectClient(c)}
-                  style={{ padding: '8px 12px', fontSize: '13px', color: form.client === c.id ? 'var(--accent)' : 'var(--text-1)', cursor: 'pointer', fontWeight: form.client === c.id ? 600 : 400 }}
+                  style={{ padding: '8px 12px', fontSize: '15px', color: form.client === c.id ? 'var(--accent)' : 'var(--text-1)', cursor: 'pointer', fontWeight: form.client === c.id ? 600 : 400 }}
                   onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-2)'}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>{c.name}</div>
               ))}
             </div>
           )}
-          {form.client && <div style={{ fontSize: '11px', color: 'var(--accent)', marginTop: 4 }}>✓ {clientSearch}</div>}
+          {form.client && <div style={{ fontSize: '13px', color: 'var(--accent)', marginTop: 4 }}>✓ {clientSearch}</div>}
         </div>
 
         {/* Status + Priority */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--sp-4)' }}>
+          <Select label="Manager" value={form.manager} onChange={e => f('manager', e.target.value)}>
+            <option value="">Unassigned</option>
+            {(managers || []).map(m => <option key={m.id} value={m.id}>{m.name || m.email}</option>)}
+          </Select>
           <Select label="Status" value={form.status} onChange={e => f('status', e.target.value)}>
             <option value="planning">Planning</option>
             <option value="in_progress">In Progress</option>
@@ -373,7 +407,7 @@ function CreateProjectModal({ onClose, onCreated }) {
             <Input label="End Date" type="date" value={form.end_date} onChange={e => f('end_date', e.target.value)} />
           </div>
           {form.start_date && form.end_date && workingDays > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', background: 'rgba(96,165,250,0.06)', border: '1px solid rgba(96,165,250,0.2)', borderRadius: 'var(--r-md)', padding: '8px 12px', fontSize: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', background: 'rgba(96,165,250,0.06)', border: '1px solid rgba(96,165,250,0.2)', borderRadius: 'var(--r-md)', padding: '8px 12px', fontSize: '14px' }}>
               <Calendar size={13} color="var(--info)" />
               <span style={{ color: 'var(--text-2)' }}>
                 <strong style={{ color: 'var(--text-0)' }}>{workingDays} working days</strong>
@@ -388,16 +422,16 @@ function CreateProjectModal({ onClose, onCreated }) {
 
         {/* Budget Section */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', padding: 'var(--sp-4)' }}>
-          <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Budget</div>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Budget</div>
 
           <div>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-2)', marginBottom: 8 }}>Resource Level</div>
+            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-2)', marginBottom: 8 }}>Resource Level</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))', gap: 'var(--sp-3)' }}>
               {['L1', 'L2', 'L3', 'L4'].map(level => (
                 <div key={level}>
-                  <div style={{ fontSize: '11px', color: 'var(--text-3)', marginBottom: 4, fontWeight: 600 }}>{level}</div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-3)', marginBottom: 4, fontWeight: 600 }}>{level}</div>
                   <input type="number" min="0" value={form[`resource_${level}`] || ''} onChange={e => f(`resource_${level}`, e.target.value)} placeholder="0"
-                    style={{ width: '100%', background: 'var(--bg-1)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '13px', padding: '7px 10px', outline: 'none', boxSizing: 'border-box' }}
+                    style={{ width: '100%', background: 'var(--bg-1)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '15px', padding: '7px 10px', outline: 'none', boxSizing: 'border-box' }}
                     onFocus={e => e.target.style.borderColor = 'var(--accent)'}
                     onBlur={e => e.target.style.borderColor = 'var(--border)'} />
                 </div>
@@ -407,16 +441,16 @@ function CreateProjectModal({ onClose, onCreated }) {
 
           {/* Hours — read-only, auto-calculated */}
           <div>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-2)', marginBottom: 4 }}>Hours (Auto-calculated from dates)</div>
-            <div style={{ background: 'var(--bg-3)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: calculatedHours > 0 ? 'var(--accent)' : 'var(--text-3)', fontSize: '13px', padding: '7px 10px', fontFamily: 'var(--font-mono)', fontWeight: calculatedHours > 0 ? 700 : 400 }}>
+            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-2)', marginBottom: 4 }}>Hours (Auto-calculated from dates)</div>
+            <div style={{ background: 'var(--bg-3)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: calculatedHours > 0 ? 'var(--accent)' : 'var(--text-3)', fontSize: '15px', padding: '7px 10px', fontFamily: 'var(--font-mono)', fontWeight: calculatedHours > 0 ? 700 : 400 }}>
               {calculatedHours > 0 ? `${calculatedHours} hrs  (${workingDays} days × 8 hrs/day)` : 'Select start & end dates to auto-calculate'}
             </div>
           </div>
 
           <div>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-2)', marginBottom: 4 }}>Activity</div>
+            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-2)', marginBottom: 4 }}>Activity</div>
             <input type="text" value={form.activity || ''} onChange={e => f('activity', e.target.value)} placeholder="e.g. Development, Testing, Design…"
-              style={{ width: '100%', background: 'var(--bg-1)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '13px', padding: '7px 10px', outline: 'none', boxSizing: 'border-box' }}
+              style={{ width: '100%', background: 'var(--bg-1)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '15px', padding: '7px 10px', outline: 'none', boxSizing: 'border-box' }}
               onFocus={e => e.target.style.borderColor = 'var(--accent)'}
               onBlur={e => e.target.style.borderColor = 'var(--border)'} />
           </div>
@@ -435,6 +469,6 @@ function CreateProjectModal({ onClose, onCreated }) {
 
 const fss = {
   background: 'var(--bg-2)', border: '1px solid var(--border)',
-  borderRadius: 'var(--r-md)', color: 'var(--text-1)', fontSize: '13px',
+  borderRadius: 'var(--r-md)', color: 'var(--text-1)', fontSize: '15px',
   padding: '8px 12px', outline: 'none', cursor: 'pointer',
 }

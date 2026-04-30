@@ -30,7 +30,7 @@ const TABS = [
   { id: 'team',       label: 'Team',      icon: Users },
 ]
 
-const sel = { width: '100%', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-1)', fontSize: '13px', padding: '8px 12px', outline: 'none' }
+const sel = { width: '100%', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-1)', fontSize: '15px', padding: '8px 12px', outline: 'none' }
 
 export default function ProjectDetailPage() {
   const { id } = useParams()
@@ -158,7 +158,7 @@ export default function ProjectDetailPage() {
 
       {/* Back */}
       <button onClick={() => navigate('/projects')}
-        style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', width: 'fit-content' }}>
+        style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '15px', width: 'fit-content' }}>
         <ArrowLeft size={14} /> Back to Projects
       </button>
 
@@ -175,7 +175,7 @@ export default function ProjectDetailPage() {
               ? <><Building2 size={12} /><span style={{ color: 'var(--accent)' }}>{p.client_detail.name}</span> · </>
               : <span style={{ color: 'var(--text-3)' }}>No client · </span>
             }
-            Managed by {p.manager_detail?.name || <span style={{ color: 'var(--danger)', fontSize: '12px' }}>⚠ No manager assigned</span>}
+            Managed by {p.manager_detail?.name || <span style={{ color: 'var(--danger)', fontSize: '14px' }}>⚠ No manager assigned</span>}
           </div>
         </div>
 
@@ -235,17 +235,17 @@ export default function ProjectDetailPage() {
         )}
       </div>
 
-      {error && <div style={{ color: 'var(--danger)', fontSize: '13px', background: 'rgba(248,113,113,0.1)', padding: '10px 14px', borderRadius: 'var(--r-md)' }}>{error}</div>}
+      {error && <div style={{ color: 'var(--danger)', fontSize: '15px', background: 'rgba(248,113,113,0.1)', padding: '10px 14px', borderRadius: 'var(--r-md)' }}>{error}</div>}
 
       {/* Edit Form */}
       {editing && form && (
         <div style={{ background: 'var(--bg-1)', border: '1px solid var(--accent)', borderRadius: 'var(--r-lg)', padding: 'var(--sp-5)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
-          <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Editing Project</div>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Editing Project</div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--sp-4)' }}>
             <Input label="Project Name" value={form.name} onChange={e => f('name', e.target.value)} required />
             <div>
-              <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>Client</div>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>Client</div>
               <select value={form.client} onChange={e => f('client', e.target.value)} style={sel}>
                 <option value="">No client</option>
                 {(clients || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -255,7 +255,7 @@ export default function ProjectDetailPage() {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--sp-4)' }}>
             <div>
-              <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>Status</div>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>Status</div>
               <select value={form.status} onChange={e => f('status', e.target.value)} style={sel}>
                 <option value="planning">Planning</option>
                 <option value="in_progress">In Progress</option>
@@ -265,7 +265,7 @@ export default function ProjectDetailPage() {
               </select>
             </div>
             <div>
-              <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>Priority</div>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>Priority</div>
               <select value={form.priority} onChange={e => f('priority', e.target.value)} style={sel}>
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
@@ -276,7 +276,7 @@ export default function ProjectDetailPage() {
           </div>
 
           <div>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>Manager</div>
+            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>Manager</div>
             <select value={form.manager} onChange={e => f('manager', e.target.value)} style={sel}>
               <option value="">No manager</option>
               {managerOptions.map(u => <option key={u.id} value={u.id}>{u.name} ({u.role})</option>)}
@@ -293,7 +293,7 @@ export default function ProjectDetailPage() {
             const wd = countWorkingDays(form.start_date, form.end_date)
             const hrs = wd * 8
             return wd > 0 ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', background: 'rgba(96,165,250,0.06)', border: '1px solid rgba(96,165,250,0.2)', borderRadius: 'var(--r-md)', padding: '8px 12px', fontSize: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', background: 'rgba(96,165,250,0.06)', border: '1px solid rgba(96,165,250,0.2)', borderRadius: 'var(--r-md)', padding: '8px 12px', fontSize: '14px' }}>
                 <Calendar size={13} color="var(--info)" />
                 <span style={{ color: 'var(--text-2)' }}>
                   <strong style={{ color: 'var(--text-0)' }}>{wd} working days</strong>
@@ -306,7 +306,7 @@ export default function ProjectDetailPage() {
 
           {/* Resource Levels */}
           <div>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-2)', marginBottom: 8 }}>Resource Levels</div>
+            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-2)', marginBottom: 8 }}>Resource Levels</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))', gap: 'var(--sp-3)' }}>
               <Input label="L1" type="number" min="0" value={form.resource_l1} onChange={e => f('resource_l1', e.target.value)} placeholder="0" />
               <Input label="L2" type="number" min="0" value={form.resource_l2} onChange={e => f('resource_l2', e.target.value)} placeholder="0" />
@@ -385,7 +385,7 @@ export default function ProjectDetailPage() {
           position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
           background: 'rgba(74,222,128,0.12)', border: '1px solid rgba(74,222,128,0.4)',
           borderRadius: 'var(--r-md)', padding: '12px 20px',
-          color: 'var(--success)', fontSize: '13px', fontWeight: 600,
+          color: 'var(--success)', fontSize: '15px', fontWeight: 600,
           display: 'flex', alignItems: 'center', gap: 8,
           boxShadow: 'var(--shadow-md)',
         }}>
@@ -407,10 +407,10 @@ function MetricBox({ icon: Icon, label, value, accent, sub }) {
     <div style={{ background: 'var(--bg-1)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', padding: 'var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 4 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <Icon size={12} color="var(--text-3)" />
-        <span style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</span>
+        <span style={{ fontSize: '13px', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</span>
       </div>
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: '15px', fontWeight: 600, color: accent || 'var(--text-0)' }}>{value != null && value !== '' ? value : '—'}</div>
-      {sub && <div style={{ fontSize: '10px', color: accent || 'var(--text-3)', fontWeight: accent ? 600 : 400 }}>{sub}</div>}
+      {sub && <div style={{ fontSize: '12px', color: accent || 'var(--text-3)', fontWeight: accent ? 600 : 400 }}>{sub}</div>}
     </div>
   )
 }
@@ -440,9 +440,9 @@ function ProjectProgressBar({ project: p, canEdit, onRefresh }) {
       {/* Label row */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
-          <span style={{ fontWeight: 600, fontSize: '13px' }}>Overall Progress</span>
+          <span style={{ fontWeight: 600, fontSize: '15px' }}>Overall Progress</span>
           {p.timelines_count > 0 && (
-            <span style={{ fontSize: '10px', color: 'var(--text-3)', background: 'var(--bg-3)', padding: '2px 7px', borderRadius: 'var(--r-full)' }}>
+            <span style={{ fontSize: '12px', color: 'var(--text-3)', background: 'var(--bg-3)', padding: '2px 7px', borderRadius: 'var(--r-full)' }}>
               auto-synced from {p.timelines_count} phase{p.timelines_count !== 1 ? 's' : ''}
             </span>
           )}
@@ -453,7 +453,7 @@ function ProjectProgressBar({ project: p, canEdit, onRefresh }) {
             <button onClick={save} disabled={saving}
               style={{
                 background: color, border: 'none', borderRadius: 'var(--r-md)',
-                color: '#0a0a0a', fontSize: '12px', fontWeight: 700,
+                color: '#0a0a0a', fontSize: '14px', fontWeight: 700,
                 padding: '5px 14px', cursor: 'pointer', transition: 'opacity 0.15s',
                 opacity: saving ? 0.6 : 1,
               }}>
@@ -490,7 +490,7 @@ function OverviewTab({ project: p }) {
       {/* Description */}
       {p.description && (
         <div>
-          <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 'var(--sp-2)' }}>Description</div>
+          <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 'var(--sp-2)' }}>Description</div>
           <p style={{ fontSize: '14px', color: 'var(--text-1)', lineHeight: 1.7 }}>{p.description}</p>
         </div>
       )}
@@ -498,7 +498,7 @@ function OverviewTab({ project: p }) {
       {/* Client Details */}
       {c ? (
         <div>
-          <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 'var(--sp-3)' }}>Client</div>
+          <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 'var(--sp-3)' }}>Client</div>
           <div style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
             {/* Client header */}
             <div style={{ padding: 'var(--sp-4) var(--sp-5)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
@@ -507,7 +507,7 @@ function OverviewTab({ project: p }) {
               </div>
               <div>
                 <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--accent)' }}>{c.name}</div>
-                {c.status && <div style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase', marginTop: 2 }}>{c.status}</div>}
+                {c.status && <div style={{ fontSize: '13px', color: 'var(--text-3)', textTransform: 'uppercase', marginTop: 2 }}>{c.status}</div>}
               </div>
             </div>
 
@@ -539,23 +539,23 @@ function OverviewTab({ project: p }) {
             {/* Notes */}
             {c.notes && (
               <div style={{ padding: 'var(--sp-3) var(--sp-5)' }}>
-                <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Notes</div>
-                <div style={{ fontSize: '13px', color: 'var(--text-1)', lineHeight: 1.6 }}>{c.notes}</div>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Notes</div>
+                <div style={{ fontSize: '15px', color: 'var(--text-1)', lineHeight: 1.6 }}>{c.notes}</div>
               </div>
             )}
           </div>
         </div>
       ) : (
-        <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>No client linked to this project.</div>
+        <div style={{ fontSize: '15px', color: 'var(--text-3)' }}>No client linked to this project.</div>
       )}
 
       {/* Tags */}
       {p.tags?.length > 0 && (
         <div>
-          <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 'var(--sp-2)' }}>Tags</div>
+          <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 'var(--sp-2)' }}>Tags</div>
           <div style={{ display: 'flex', gap: 'var(--sp-2)', flexWrap: 'wrap' }}>
             {p.tags.map(tag => (
-              <span key={tag} style={{ background: 'var(--bg-3)', border: '1px solid var(--border)', borderRadius: 'var(--r-full)', padding: '3px 10px', fontSize: '12px', color: 'var(--text-2)' }}>{tag}</span>
+              <span key={tag} style={{ background: 'var(--bg-3)', border: '1px solid var(--border)', borderRadius: 'var(--r-full)', padding: '3px 10px', fontSize: '14px', color: 'var(--text-2)' }}>{tag}</span>
             ))}
           </div>
         </div>
@@ -571,8 +571,8 @@ function ClientCell({ label, value, border }) {
       padding: 'var(--sp-3) var(--sp-5)',
       borderLeft: border ? '1px solid var(--border)' : 'none',
     }}>
-      <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>{label}</div>
-      <div style={{ fontSize: '13px', fontWeight: 500, color: value ? 'var(--text-0)' : 'var(--text-3)' }}>{value || '—'}</div>
+      <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: '15px', fontWeight: 500, color: value ? 'var(--text-0)' : 'var(--text-3)' }}>{value || '—'}</div>
     </div>
   )
 }
@@ -586,10 +586,10 @@ function UpdatesTab({ updates }) {
           <Avatar name={u.author?.name} size={32} />
           <div style={{ flex: 1, background: 'var(--bg-2)', borderRadius: 'var(--r-md)', padding: 'var(--sp-4)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--sp-2)' }}>
-              <span style={{ fontWeight: 600, fontSize: '13px' }}>{u.author?.name || 'Unknown'}</span>
-              <span style={{ fontSize: '11px', color: 'var(--text-3)', fontFamily: 'var(--font-mono)' }}>{timeAgo(u.created_at)}</span>
+              <span style={{ fontWeight: 600, fontSize: '15px' }}>{u.author?.name || 'Unknown'}</span>
+              <span style={{ fontSize: '13px', color: 'var(--text-3)', fontFamily: 'var(--font-mono)' }}>{timeAgo(u.created_at)}</span>
             </div>
-            <p style={{ fontSize: '13px', color: 'var(--text-1)', lineHeight: 1.6 }}>{u.content}</p>
+            <p style={{ fontSize: '15px', color: 'var(--text-1)', lineHeight: 1.6 }}>{u.content}</p>
           </div>
         </div>
       ))}
@@ -603,17 +603,17 @@ function TeamTab({ resources, manager, projectId, canEdit, onRefresh }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
       {manager && (
         <div>
-          <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 'var(--sp-3)' }}>Project Manager</div>
+          <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 'var(--sp-3)' }}>Project Manager</div>
           <TeamMemberRow user={manager} />
         </div>
       )}
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--sp-3)' }}>
-          <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Resources ({resources.length})</div>
+          <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Resources ({resources.length})</div>
           {canEdit && <Btn size="sm" variant="secondary" icon={<Plus size={12} />} onClick={() => setShowAssign(true)}>Assign</Btn>}
         </div>
         {resources.length === 0
-          ? <p style={{ color: 'var(--text-3)', fontSize: '13px' }}>No resources assigned.</p>
+          ? <p style={{ color: 'var(--text-3)', fontSize: '15px' }}>No resources assigned.</p>
           : resources.map(r => <TeamMemberRow key={r.id} user={r} projectId={canEdit ? projectId : null} onRemove={canEdit ? onRefresh : null} />)
         }
       </div>
@@ -633,12 +633,12 @@ function TeamMemberRow({ user, projectId, onRemove }) {
     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
       <Avatar name={user.name} src={user.avatar || user.avatar_url} size={36} role={user.role} />
       <div style={{ flex: 1 }}>
-        <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-0)' }}>{user.name || '—'}</div>
-        <div style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'capitalize' }}>{user.role || 'Member'}{user.department ? ` · ${user.department}` : ''}</div>
+        <div style={{ fontWeight: 600, fontSize: '15px', color: 'var(--text-0)' }}>{user.name || '—'}</div>
+        <div style={{ fontSize: '13px', color: 'var(--text-3)', textTransform: 'capitalize' }}>{user.role || 'Member'}{user.department ? ` · ${user.department}` : ''}</div>
       </div>
       {projectId && onRemove && (
         <button onClick={handleRemove} disabled={removing}
-          style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', cursor: 'pointer', padding: '3px 8px', fontSize: '11px', color: 'var(--text-3)', transition: 'all var(--t-fast)' }}
+          style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', cursor: 'pointer', padding: '3px 8px', fontSize: '13px', color: 'var(--text-3)', transition: 'all var(--t-fast)' }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--danger)'; e.currentTarget.style.color = 'var(--danger)' }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-3)' }}>
           {removing ? '…' : 'Remove'}
@@ -677,7 +677,7 @@ function AssignResourceModal({ projectId, assignedIds, onClose, onDone }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
         {/* Filter tabs */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', gap: 4, fontSize: '11px', color: 'var(--text-3)', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 4, fontSize: '13px', color: 'var(--text-3)', alignItems: 'center' }}>
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }} /> On Bench
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--warning)', display: 'inline-block', marginLeft: 8 }} /> Active
           </div>
@@ -687,7 +687,7 @@ function AssignResourceModal({ projectId, assignedIds, onClose, onDone }) {
                 background: benchFilter === val ? 'var(--bg-1)' : 'transparent',
                 border: 'none', borderRadius: 'var(--r-sm)',
                 color: benchFilter === val ? 'var(--text-0)' : 'var(--text-3)',
-                fontSize: '11px', fontWeight: benchFilter === val ? 600 : 400,
+                fontSize: '13px', fontWeight: benchFilter === val ? 600 : 400,
                 padding: '3px 9px', cursor: 'pointer', transition: 'all var(--t-fast)',
               }}>{label}</button>
             ))}
@@ -695,7 +695,7 @@ function AssignResourceModal({ projectId, assignedIds, onClose, onDone }) {
         </div>
 
         {filtered.length === 0 ? (
-          <div style={{ color: 'var(--text-3)', fontSize: '13px', textAlign: 'center', padding: 'var(--sp-6)' }}>
+          <div style={{ color: 'var(--text-3)', fontSize: '15px', textAlign: 'center', padding: 'var(--sp-6)' }}>
             {available.length === 0 ? 'All resources already assigned to this project' : 'No resources match this filter'}
           </div>
         ) : (
@@ -706,8 +706,8 @@ function AssignResourceModal({ projectId, assignedIds, onClose, onDone }) {
               <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', padding: 'var(--sp-3)', borderRadius: 'var(--r-md)', border: '1px solid var(--border)', background: 'var(--bg-2)' }}>
                 <Avatar name={r.user_detail?.name} size={34} role="resource" />
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: '13px' }}>{r.user_detail?.name}</div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                  <div style={{ fontWeight: 600, fontSize: '15px' }}>{r.user_detail?.name}</div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
                     <span>{r.job_title || r.level || r.resource_level || 'No title'}</span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                       <span style={{ width: 6, height: 6, borderRadius: '50%', background: onBench ? 'var(--success)' : 'var(--warning)', display: 'inline-block' }} />
@@ -740,7 +740,7 @@ function AddUpdateModal({ projectId, onClose, onDone }) {
   return (
     <Modal open onClose={onClose} title="Add Project Update">
       <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
-        {error && <div style={{ color: 'var(--danger)', fontSize: '13px' }}>{error}</div>}
+        {error && <div style={{ color: 'var(--danger)', fontSize: '15px' }}>{error}</div>}
         <Textarea label="Update" value={content} onChange={e => setContent(e.target.value)} placeholder="What's the latest on this project?" style={{ minHeight: 120 }} required />
         <div style={{ display: 'flex', gap: 'var(--sp-3)', justifyContent: 'flex-end' }}>
           <Btn variant="ghost" type="button" onClick={onClose}>Cancel</Btn>
@@ -752,7 +752,7 @@ function AddUpdateModal({ projectId, onClose, onDone }) {
 }
 
 // ─── Timelines Tab ──────────────────────────────────────────────────────────
-const sel2 = { width: '100%', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-1)', fontSize: '13px', padding: '8px 12px', outline: 'none' }
+const sel2 = { width: '100%', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-1)', fontSize: '15px', padding: '8px 12px', outline: 'none' }
 
 function TimelinesTab({ projectId, canEdit }) {
   const qc = useQueryClient()
@@ -803,12 +803,12 @@ function TimelinesTab({ projectId, canEdit }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>{phases.length} phase{phases.length !== 1 ? 's' : ''} · {phases.filter(p => p.status === 'completed').length} completed</div>
+        <div style={{ fontSize: '15px', color: 'var(--text-3)' }}>{phases.length} phase{phases.length !== 1 ? 's' : ''} · {phases.filter(p => p.status === 'completed').length} completed</div>
         {canEdit && <Btn size="sm" icon={<Plus size={13} />} onClick={() => setShowCreate(true)}>Add Phase</Btn>}
       </div>
 
       {phases.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 'var(--sp-8)', color: 'var(--text-3)', fontSize: '13px' }}>
+        <div style={{ textAlign: 'center', padding: 'var(--sp-8)', color: 'var(--text-3)', fontSize: '15px' }}>
           No timeline phases yet.{canEdit ? ' Click "Add Phase" to create one.' : ''}
         </div>
       ) : (
@@ -820,8 +820,8 @@ function TimelinesTab({ projectId, canEdit }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', padding: '12px 14px' }}>
                 <div style={{ width: 10, height: 10, borderRadius: 2, background: phase.color || 'var(--accent)', flexShrink: 0 }} />
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: '13px' }}>{phase.name}</div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: 2 }}>
+                  <div style={{ fontWeight: 600, fontSize: '15px' }}>{phase.name}</div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-3)', marginTop: 2 }}>
                     {formatDate(phase.start_date)} → {formatDate(phase.end_date)}
                     {phase.assignee_details?.length > 0 && ` · ${phase.assignee_details.map(a => a.name).join(', ')}`}
                   </div>
@@ -832,7 +832,7 @@ function TimelinesTab({ projectId, canEdit }) {
                   <div style={{ flex: 1, height: 6, background: 'var(--bg-3)', borderRadius: 99 }}>
                     <div style={{ height: '100%', width: `${phase.progress}%`, background: phase.color || 'var(--accent)', borderRadius: 99 }} />
                   </div>
-                  <span style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: 'var(--accent)', fontWeight: 600, minWidth: 30, textAlign: 'right' }}>{phase.progress}%</span>
+                  <span style={{ fontSize: '13px', fontFamily: 'var(--font-mono)', color: 'var(--accent)', fontWeight: 600, minWidth: 30, textAlign: 'right' }}>{phase.progress}%</span>
                 </div>
                 {canEdit && !isEditing && (
                   <div style={{ display: 'flex', gap: 2 }}>
@@ -852,7 +852,7 @@ function TimelinesTab({ projectId, canEdit }) {
 
               {/* Description */}
               {!isEditing && phase.description && (
-                <div style={{ padding: '0 14px 10px', fontSize: '12px', color: 'var(--text-2)', lineHeight: 1.6 }}>{phase.description}</div>
+                <div style={{ padding: '0 14px 10px', fontSize: '14px', color: 'var(--text-2)', lineHeight: 1.6 }}>{phase.description}</div>
               )}
 
               {/* Inline edit form */}
@@ -861,7 +861,7 @@ function TimelinesTab({ projectId, canEdit }) {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--sp-3)' }}>
                     <Input label="Phase Name" value={editForm.name} onChange={e => ef('name', e.target.value)} />
                     <div>
-                      <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>Status</div>
+                      <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>Status</div>
                       <select value={editForm.status} onChange={e => ef('status', e.target.value)} style={sel2}>
                         <option value="pending">Pending</option>
                         <option value="in_progress">In Progress</option>
@@ -875,7 +875,7 @@ function TimelinesTab({ projectId, canEdit }) {
                     <Input label="End Date" type="date" value={editForm.end_date} onChange={e => ef('end_date', e.target.value)} />
                   </div>
                   <div>
-                    <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>
+                    <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>
                       Progress — <span style={{ color: 'var(--accent)' }}>{editForm.progress}% complete</span>
                     </div>
                     <input type="range" min="0" max="100" value={editForm.progress}
@@ -893,7 +893,7 @@ function TimelinesTab({ projectId, canEdit }) {
               {/* Milestones */}
               {!isEditing && phase.milestones?.length > 0 && (
                 <div style={{ borderTop: '1px solid var(--border)', padding: '8px 14px 12px' }}>
-                  <div style={{ fontSize: '10px', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
+                  <div style={{ fontSize: '12px', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
                     Milestones — {phase.milestones.filter(m => m.completed).length}/{phase.milestones.length}
                   </div>
                   {phase.milestones.map(m => (
@@ -902,8 +902,8 @@ function TimelinesTab({ projectId, canEdit }) {
                         style={{ background: 'none', border: 'none', cursor: !m.completed && canEdit ? 'pointer' : 'default', padding: 0, color: m.completed ? 'var(--success)' : 'var(--text-3)' }}>
                         {m.completed ? <CheckCircle size={13} /> : <Circle size={13} />}
                       </button>
-                      <span style={{ fontSize: '12px', flex: 1, textDecoration: m.completed ? 'line-through' : 'none', color: m.completed ? 'var(--text-3)' : 'var(--text-1)' }}>{m.title}</span>
-                      <span style={{ fontSize: '10px', color: 'var(--text-3)' }}>Due {formatDate(m.due_date)}</span>
+                      <span style={{ fontSize: '14px', flex: 1, textDecoration: m.completed ? 'line-through' : 'none', color: m.completed ? 'var(--text-3)' : 'var(--text-1)' }}>{m.title}</span>
+                      <span style={{ fontSize: '12px', color: 'var(--text-3)' }}>Due {formatDate(m.due_date)}</span>
                     </div>
                   ))}
                 </div>
@@ -936,7 +936,7 @@ function CreatePhaseModal({ projectId, onClose, onCreated }) {
   return (
     <Modal open onClose={onClose} title="Add Timeline Phase" fullscreen>
       <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-5)' }}>
-        {error && <div style={{ color: 'var(--danger)', fontSize: '13px', background: 'rgba(248,113,113,0.1)', padding: '8px 12px', borderRadius: 'var(--r-md)' }}>{error}</div>}
+        {error && <div style={{ color: 'var(--danger)', fontSize: '15px', background: 'rgba(248,113,113,0.1)', padding: '8px 12px', borderRadius: 'var(--r-md)' }}>{error}</div>}
         <Input label="Phase name" value={form.name} onChange={e => f('name', e.target.value)} required />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--sp-4)' }}>
           <Input label="Start date" type="date" value={form.start_date} onChange={e => f('start_date', e.target.value)} required />
@@ -988,7 +988,7 @@ function ApprovalRequestModal({ project, type, onClose, onSubmitted }) {
           background: isDelete ? 'rgba(248,113,113,0.08)' : 'rgba(96,165,250,0.08)',
           border: `1px solid ${isDelete ? 'rgba(248,113,113,0.3)' : 'rgba(96,165,250,0.3)'}`,
           borderRadius: 'var(--r-md)', padding: '12px 14px',
-          fontSize: '13px', color: isDelete ? 'var(--danger)' : 'var(--info)', lineHeight: 1.5,
+          fontSize: '15px', color: isDelete ? 'var(--danger)' : 'var(--info)', lineHeight: 1.5,
         }}>
           {isDelete
             ? <>You're requesting permission to <strong>delete</strong> <strong>"{project.name}"</strong>. Once the admin approves, the project will be permanently removed.</>
@@ -997,12 +997,12 @@ function ApprovalRequestModal({ project, type, onClose, onSubmitted }) {
         </div>
 
         {err && (
-          <div style={{ color: 'var(--danger)', fontSize: '13px', background: 'rgba(248,113,113,0.1)', padding: '8px 12px', borderRadius: 'var(--r-md)' }}>{err}</div>
+          <div style={{ color: 'var(--danger)', fontSize: '15px', background: 'rgba(248,113,113,0.1)', padding: '8px 12px', borderRadius: 'var(--r-md)' }}>{err}</div>
         )}
 
         {/* Reason */}
         <div>
-          <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>
+          <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>
             Reason <span style={{ color: 'var(--danger)' }}>*</span>
           </div>
           <textarea
@@ -1015,13 +1015,13 @@ function ApprovalRequestModal({ project, type, onClose, onSubmitted }) {
               width: '100%', boxSizing: 'border-box',
               background: 'var(--bg-2)', border: '1px solid var(--border)',
               borderRadius: 'var(--r-md)', color: 'var(--text-0)',
-              fontSize: '13px', padding: '10px 12px', outline: 'none',
+              fontSize: '15px', padding: '10px 12px', outline: 'none',
               resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.6,
             }}
             onFocus={e => e.target.style.borderColor = 'var(--accent)'}
             onBlur={e => e.target.style.borderColor = 'var(--border)'}
           />
-          <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: 4 }}>
+          <div style={{ fontSize: '13px', color: 'var(--text-3)', marginTop: 4 }}>
             {isDelete ? 'Admin will review this and notify you of their decision.' : 'After approval, go to Approvals in the sidebar to apply your specific changes.'}
           </div>
         </div>

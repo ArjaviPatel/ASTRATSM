@@ -95,6 +95,12 @@ class ClientViewSet(viewsets.ModelViewSet):
         client = self.get_object()
         from projects.serializers import ProjectListSerializer
         qs = client.projects.select_related('manager').prefetch_related('resources')
+        if request.user.role == User.Role.MANAGER:
+            qs = qs.filter(manager=request.user)
+        elif request.user.role == User.Role.RESOURCE:
+            qs = qs.filter(resources=request.user)
+        elif request.user.role == User.Role.CLIENT:
+            qs = qs.filter(Q(client__portal_user=request.user) | Q(resources=request.user)).distinct()
         return Response(ProjectListSerializer(qs, many=True, context={'request': request}).data)
 
     @action(detail=True, methods=['get', 'post'], url_path='contacts')

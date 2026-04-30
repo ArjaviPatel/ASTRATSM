@@ -1,9 +1,11 @@
+import json
 import logging
 from decimal import Decimal
 
 from django.db import transaction
 from django.db.models import Count, DecimalField, F, Q, Sum, Value
 from django.db.models.functions import Coalesce, Greatest
+from django.core.serializers.json import DjangoJSONEncoder
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, status, viewsets
@@ -204,7 +206,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['status', 'priority', 'client', 'manager']
-    search_fields = ['name', 'description']
+    search_fields = ['name', 'description', 'client__name', 'manager__name']
     ordering_fields = ['name', 'created_at', 'end_date', 'priority', 'progress', 'budget']
 
     def get_queryset(self):
@@ -220,12 +222,18 @@ class ProjectViewSet(viewsets.ModelViewSet):
         if self.action in ('retrieve', 'assign_resource', 'remove_resource', 'add_update', 'upload_document', 'update_progress'):
             base = base.prefetch_related('resources', 'updates', 'documents')
         if user.role == User.Role.ADMIN:
-            return base.all()
-        if user.role == User.Role.MANAGER:
-            return base.filter(manager=user)
-        if user.role == User.Role.RESOURCE:
-            return base.filter(resources=user)
-        return base.none()
+            qs = base.all()
+        elif user.role == User.Role.MANAGER:
+            qs = base.filter(manager=user)
+        elif user.role == User.Role.RESOURCE:
+            qs = base.filter(resources=user)
+        else:
+            qs = base.none()
+
+        over_budget = self.request.query_params.get('over_budget')
+        if over_budget in ('1', 'true', 'True', 'yes'):
+            qs = qs.filter(budget__gt=0, spent__gt=F('budget'))
+        return qs
 
     def get_serializer_class(self):
         return ProjectListSerializer if self.action == 'list' else ProjectDetailSerializer
@@ -441,11 +449,19 @@ class ProjectApprovalViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         qs = ProjectApprovalRequest.objects.select_related('project', 'requested_by', 'resolved_by')
+        status_filter = self.request.query_params.get('status')
+        request_type = self.request.query_params.get('request_type')
         if user.role == User.Role.ADMIN:
-            return qs.all()
-        if user.role == User.Role.MANAGER:
-            return (qs.filter(project__manager=user) | qs.filter(requested_by=user)).distinct()
-        return qs.filter(requested_by=user)
+            scoped = qs.all()
+        elif user.role == User.Role.MANAGER:
+            scoped = (qs.filter(project__manager=user) | qs.filter(requested_by=user)).distinct()
+        else:
+            scoped = qs.filter(requested_by=user)
+        if status_filter:
+            scoped = scoped.filter(status=status_filter)
+        if request_type:
+            scoped = scoped.filter(request_type=request_type)
+        return scoped
 
     def get_permissions(self):
         if self.action in ('update', 'partial_update', 'destroy'):
@@ -576,7 +592,8 @@ class ProjectApprovalViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         with transaction.atomic():
             serializer.save()
-            req.proposed_changes = {**serializer.validated_data, '_applied': True}
+            safe_changes = json.loads(json.dumps(payload, cls=DjangoJSONEncoder))
+            req.proposed_changes = {**safe_changes, '_applied': True}
             req.save(update_fields=['proposed_changes'])
 
         notify_project_team(

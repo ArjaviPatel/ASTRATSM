@@ -109,10 +109,15 @@ export const resourcesApi = {
   update: (id, data) => api.patch(`/resources/${id}/`, data),
   delete: (id) => api.delete(`/resources/${id}/`),
   export: () => api.get('/resources/export/', { responseType: 'blob' }),
+  timesheetReport: (id) => api.get(`/resources/${id}/timesheet_report/`, { responseType: 'blob' }),
   setAvailability: (id, data) => api.patch(`/resources/${id}/set_availability/`, data),
   timeEntries: (params) => api.get('/resources/time-entries/', { params }),
   createTimeEntry: (data) => api.post('/resources/time-entries/', data),
   approveTimeEntry: (id) => api.patch(`/resources/time-entries/${id}/approve/`),
+  lateEntryApprovals: (params) => api.get('/resources/late-entry-approvals/', { params }),
+  requestLateEntryApproval: (data) => api.post('/resources/late-entry-approvals/', data),
+  approveLateEntryApproval: (id, data) => api.post(`/resources/late-entry-approvals/${id}/approve/`, data || {}),
+  rejectLateEntryApproval: (id, data) => api.post(`/resources/late-entry-approvals/${id}/reject/`, data || {}),
 }
 
 // ── Chat ──────────────────────────────────────────────────────────────

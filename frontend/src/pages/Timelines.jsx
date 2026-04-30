@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react'
+import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { useQuery, useQueries, useQueryClient, useMutation } from '@tanstack/react-query'
 import {
   Plus, GitBranch, CheckCircle, Circle, Edit2, Trash2,
@@ -6,7 +6,7 @@ import {
   AlertTriangle, Info, Loader2, RefreshCw,
 } from 'lucide-react'
 import { timelinesApi, projectsApi, timelineApprovalsApi, resourcesApi } from '@/api/index.js'
-import { Btn, Badge, EmptyState, Modal, Input, Textarea, Spinner } from '@/components/ui/index.jsx'
+import { Btn, Badge, EmptyState, Modal, Input, Textarea, Spinner, Pagination } from '@/components/ui/index.jsx'
 import { STATUS_COLOR, STATUS_LABEL, formatDate, extractError } from '@/utils/index.js'
 import { useAuthStore } from '@/stores/authStore.js'
 
@@ -25,6 +25,8 @@ const STATUS_OPTIONS = [
   { value: 'completed',   label: 'Completed'   },
   { value: 'on_hold',     label: 'On Hold'     },
 ]
+
+const PAGE_SIZE = 20
 
 // ─── Responsive hook ──────────────────────────────────────────────────────────
 
@@ -132,7 +134,7 @@ function Toast({ message, type = 'success', onDismiss }) {
         position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
         background: bg, border: `1px solid ${border}`,
         borderRadius: 'var(--r-md)', padding: '12px 16px',
-        color, fontSize: '13px', fontWeight: 600,
+        color, fontSize: '15px', fontWeight: 600,
         display: 'flex', alignItems: 'center', gap: 8,
         boxShadow: 'var(--shadow-md)', cursor: 'pointer',
         maxWidth: 340, animation: 'fadeIn 0.2s ease',
@@ -152,7 +154,7 @@ function StyledSelect({ label, value, onChange, options, required, placeholder }
   return (
     <div>
       {label && (
-        <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>
+        <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>
           {label}{required && <span style={{ color: 'var(--danger)', marginLeft: 3 }}>*</span>}
         </div>
       )}
@@ -168,7 +170,7 @@ function StyledSelect({ label, value, onChange, options, required, placeholder }
           border: `1px solid ${focused ? 'var(--accent)' : 'var(--border)'}`,
           borderRadius: 'var(--r-md)',
           color: value ? 'var(--text-0)' : 'var(--text-3)',
-          fontSize: '13px',
+          fontSize: '15px',
           padding: '9px 12px',
           outline: 'none',
           cursor: 'pointer',
@@ -191,13 +193,13 @@ function FormField({ label, required, error, children }) {
   return (
     <div>
       {label && (
-        <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>
+        <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>
           {label}{required && <span style={{ color: 'var(--danger)', marginLeft: 3 }}>*</span>}
         </div>
       )}
       {children}
       {error && (
-        <div style={{ fontSize: '11px', color: 'var(--danger)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+        <div style={{ fontSize: '13px', color: 'var(--danger)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
           <AlertTriangle size={11} />{error}
         </div>
       )}
@@ -220,6 +222,7 @@ export default function TimelinesPage() {
 
   const [showCreate, setShowCreate]     = useState(false)
   const [toast, setToast]               = useState(null)  // { msg, type }
+  const [page, setPage]                 = useState(1)
 
   const showToast = useCallback((msg, type = 'success') => {
     setToast({ msg, type })
@@ -227,12 +230,18 @@ export default function TimelinesPage() {
   }, [])
 
   const { data: timelinesData, isLoading, isError, refetch } = useQuery({
-    queryKey: ['timelines'],
-    queryFn: () => timelinesApi.list({ page_size: 200 }).then(r => r.data.results || r.data),
+    queryKey: ['timelines', page],
+    queryFn: () => timelinesApi.list({ page, page_size: PAGE_SIZE }).then(r => r.data),
     staleTime: 30_000,
   })
 
-  const timelines = timelinesData || []
+  const timelines = timelinesData?.results || timelinesData || []
+  const total = timelinesData?.count ?? timelines.length
+  const totalPages = timelinesData?.total_pages ?? 1
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages || 1)
+  }, [page, totalPages])
 
   const byProject = useMemo(() => timelines.reduce((acc, t) => {
     const key = t.project || 'unknown'
@@ -264,7 +273,11 @@ export default function TimelinesPage() {
     return map
   }, [projectDetailResults])
 
-  const refresh = useCallback(() => qc.invalidateQueries(['timelines']), [qc])
+  const refresh = useCallback(() => {
+    qc.invalidateQueries({ queryKey: ['timelines'] })
+    qc.invalidateQueries({ queryKey: ['dashboard-timelines'] })
+    qc.invalidateQueries({ queryKey: ['dashboard-projects'] })
+  }, [qc])
 
   // ── Pending approval badge for resources ──
   const { data: myPendingData } = useQuery({
@@ -297,7 +310,7 @@ export default function TimelinesPage() {
           }}>
             Timelines
           </h1>
-          <p style={{ color: 'var(--text-2)', fontSize: '13px', marginTop: 2 }}>
+          <p style={{ color: 'var(--text-2)', fontSize: '15px', marginTop: 2 }}>
             {timelines.length} phases across {Object.keys(byProject).length} projects
           </p>
           {isResource && myPendingCount > 0 && (
@@ -306,14 +319,14 @@ export default function TimelinesPage() {
               display: 'inline-flex', alignItems: 'center', gap: 6,
               background: 'rgba(251,146,60,0.1)', border: '1px solid rgba(251,146,60,0.3)',
               borderRadius: 'var(--r-full)', padding: '3px 10px',
-              fontSize: '12px', color: 'var(--warning)', fontWeight: 600,
+              fontSize: '14px', color: 'var(--warning)', fontWeight: 600,
             }}>
               <Clock size={11} />
               {myPendingCount} approval request{myPendingCount > 1 ? 's' : ''} pending
             </div>
           )}
           {isResource && (
-            <p style={{ color: 'var(--text-2)', fontSize: '12px', marginTop: 8, maxWidth: 640, lineHeight: 1.6 }}>
+            <p style={{ color: 'var(--text-2)', fontSize: '14px', marginTop: 8, maxWidth: 640, lineHeight: 1.6 }}>
               Open an assigned phase to submit time. Resources can log work against phases here, while phase creation and direct timeline edits remain controlled by admins and managers.
             </p>
           )}
@@ -377,6 +390,15 @@ export default function TimelinesPage() {
         ))
       )}
 
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        pageSize={PAGE_SIZE}
+        onPageChange={setPage}
+        loading={isLoading}
+      />
+
       {/* Create modal */}
       {showCreate && (
         <CreateTimelineModal
@@ -384,6 +406,7 @@ export default function TimelinesPage() {
           onClose={() => setShowCreate(false)}
           onCreated={() => {
             setShowCreate(false)
+            setPage(1)
             refresh()
             showToast('Phase created successfully!')
           }}
@@ -437,7 +460,7 @@ function ProjectTimeline({ projectId, projectName, phases, resources, user, now,
         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
       >
         <div style={{
-          fontSize: '11px', color: 'var(--text-3)',
+          fontSize: '13px', color: 'var(--text-3)',
           transform: expanded ? 'rotate(90deg)' : 'rotate(0)',
           transition: 'transform var(--t-fast)',
           flexShrink: 0,
@@ -449,7 +472,7 @@ function ProjectTimeline({ projectId, projectName, phases, resources, user, now,
           <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--accent)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {projectName}
           </div>
-          <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: 2, display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ fontSize: '13px', color: 'var(--text-3)', marginTop: 2, display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
             <span>{phases.length} phases</span>
             <span>·</span>
             <span>{formatDate(minDate)} → {formatDate(maxDate)}</span>
@@ -465,15 +488,15 @@ function ProjectTimeline({ projectId, projectName, phases, resources, user, now,
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
           {/* Progress ring */}
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '12px', fontWeight: 700, color: done === phases.length ? 'var(--success)' : 'var(--text-1)' }}>
+            <div style={{ fontSize: '14px', fontWeight: 700, color: done === phases.length ? 'var(--success)' : 'var(--text-1)' }}>
               {done}/{phases.length}
             </div>
-            <div style={{ fontSize: '10px', color: 'var(--text-3)' }}>done</div>
+            <div style={{ fontSize: '12px', color: 'var(--text-3)' }}>done</div>
           </div>
           {totalH > 0 && !isMobile && (
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-1)', fontFamily: 'var(--font-mono)' }}>{totalH}h</div>
-              <div style={{ fontSize: '10px', color: 'var(--text-3)' }}>allocated</div>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-1)', fontFamily: 'var(--font-mono)' }}>{totalH}h</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-3)' }}>allocated</div>
             </div>
           )}
         </div>
@@ -489,8 +512,8 @@ function ProjectTimeline({ projectId, projectName, phases, resources, user, now,
                 <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: 8, marginBottom: 4 }}>
                   <div />
                   <div style={{ position: 'relative', height: 18 }}>
-                    <span style={{ position: 'absolute', left: 0, fontSize: '10px', color: 'var(--text-3)' }}>{formatDate(minDate)}</span>
-                    <span style={{ position: 'absolute', right: 0, fontSize: '10px', color: 'var(--text-3)' }}>{formatDate(maxDate)}</span>
+                    <span style={{ position: 'absolute', left: 0, fontSize: '12px', color: 'var(--text-3)' }}>{formatDate(minDate)}</span>
+                    <span style={{ position: 'absolute', right: 0, fontSize: '12px', color: 'var(--text-3)' }}>{formatDate(maxDate)}</span>
                   </div>
                 </div>
 
@@ -505,7 +528,7 @@ function ProjectTimeline({ projectId, projectName, phases, resources, user, now,
 
                   return (
                     <div key={phase.id} style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-                      <div style={{ fontSize: '11px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-1)' }}>
+                      <div style={{ fontSize: '13px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-1)' }}>
                         {phase.name}
                       </div>
                       <div style={{ position: 'relative', height: 26, background: 'var(--bg-3)', borderRadius: 4 }}>
@@ -517,7 +540,7 @@ function ProjectTimeline({ projectId, projectName, phases, resources, user, now,
                         )}
                         {/* Label */}
                         <div style={{ position: 'absolute', left: `${leftPct}%`, width: `${widthPct}%`, height: '100%', display: 'flex', alignItems: 'center', paddingLeft: 6, overflow: 'hidden', pointerEvents: 'none' }}>
-                          <span style={{ fontSize: '10px', fontWeight: 600, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '88%', textShadow: '0 1px 2px rgba(0,0,0,0.7)' }}>
+                          <span style={{ fontSize: '12px', fontWeight: 600, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '88%', textShadow: '0 1px 2px rgba(0,0,0,0.7)' }}>
                             {phase.name}
                           </span>
                         </div>
@@ -713,7 +736,7 @@ function PhaseRow({ phase, user, now, isMobile, onRefresh, onToast }) {
         {/* Name + badge */}
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
           <span style={{
-            fontWeight: 500, fontSize: '13px',
+            fontWeight: 500, fontSize: '15px',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>
             {phase.name}
@@ -726,7 +749,7 @@ function PhaseRow({ phase, user, now, isMobile, onRefresh, onToast }) {
         {/* Right meta */}
         <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 12, flexShrink: 0 }}>
           {!isMobile && (
-            <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>
+            <span style={{ fontSize: '13px', color: 'var(--text-3)' }}>
               {formatDate(phase.start_date)} → {formatDate(phase.end_date)}
             </span>
           )}
@@ -738,7 +761,7 @@ function PhaseRow({ phase, user, now, isMobile, onRefresh, onToast }) {
                 <div style={{ height: '100%', width: `${h.consumedPct}%`, background: h.barColor, borderRadius: 99, transition: 'width 0.4s ease' }} />
               </div>
               {!isMobile && (
-                <span style={{ fontSize: '11px', color: h.barColor, fontWeight: 600, minWidth: 44 }}>
+                <span style={{ fontSize: '13px', color: h.barColor, fontWeight: 600, minWidth: 44 }}>
                   {phase.status === 'completed' ? 'done' : `${h.remaining}h left`}
                 </span>
               )}
@@ -836,7 +859,7 @@ function PhaseRow({ phase, user, now, isMobile, onRefresh, onToast }) {
                     step="1"
                     value={form.progress}
                     onChange={e => f('progress', e.target.value)}
-                    style={{ width: '100%', background: 'var(--bg-2)', border: `1px solid ${formErrors.progress ? 'var(--danger)' : 'var(--border)'}`, borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '13px', padding: '9px 12px', outline: 'none' }}
+                    style={{ width: '100%', background: 'var(--bg-2)', border: `1px solid ${formErrors.progress ? 'var(--danger)' : 'var(--border)'}`, borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '15px', padding: '9px 12px', outline: 'none' }}
                     onFocus={e => e.target.style.borderColor = 'var(--accent)'}
                     onBlur={e => e.target.style.borderColor = formErrors.progress ? 'var(--danger)' : 'var(--border)'}
                   />
@@ -848,7 +871,7 @@ function PhaseRow({ phase, user, now, isMobile, onRefresh, onToast }) {
                     type="date"
                     value={form.work_date}
                     onChange={e => f('work_date', e.target.value)}
-                    style={{ width: '100%', background: 'var(--bg-2)', border: `1px solid ${formErrors.work_date ? 'var(--danger)' : 'var(--border)'}`, borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '13px', padding: '9px 12px', outline: 'none' }}
+                    style={{ width: '100%', background: 'var(--bg-2)', border: `1px solid ${formErrors.work_date ? 'var(--danger)' : 'var(--border)'}`, borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '15px', padding: '9px 12px', outline: 'none' }}
                     onFocus={e => e.target.style.borderColor = 'var(--accent)'}
                     onBlur={e => e.target.style.borderColor = formErrors.work_date ? 'var(--danger)' : 'var(--border)'}
                   />
@@ -862,7 +885,7 @@ function PhaseRow({ phase, user, now, isMobile, onRefresh, onToast }) {
                     value={form.hours}
                     onChange={e => f('hours', e.target.value)}
                     placeholder="e.g. 4"
-                    style={{ width: '100%', background: 'var(--bg-2)', border: `1px solid ${formErrors.hours ? 'var(--danger)' : 'var(--border)'}`, borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '13px', padding: '9px 12px', outline: 'none' }}
+                    style={{ width: '100%', background: 'var(--bg-2)', border: `1px solid ${formErrors.hours ? 'var(--danger)' : 'var(--border)'}`, borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '15px', padding: '9px 12px', outline: 'none' }}
                     onFocus={e => e.target.style.borderColor = 'var(--accent)'}
                     onBlur={e => e.target.style.borderColor = formErrors.hours ? 'var(--danger)' : 'var(--border)'}
                   />
@@ -875,7 +898,7 @@ function PhaseRow({ phase, user, now, isMobile, onRefresh, onToast }) {
                   placeholder="What work was completed, what is pending, blockers, and next steps…"
                   rows={4}
                   maxLength={5000}
-                  style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bg-2)', border: `1px solid ${formErrors.description ? 'var(--danger)' : 'var(--border)'}`, borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '13px', padding: '10px 12px', outline: 'none', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.6 }}
+                  style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bg-2)', border: `1px solid ${formErrors.description ? 'var(--danger)' : 'var(--border)'}`, borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '15px', padding: '10px 12px', outline: 'none', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.6 }}
                   onFocus={e => e.target.style.borderColor = 'var(--accent)'}
                   onBlur={e => e.target.style.borderColor = formErrors.description ? 'var(--danger)' : 'var(--border)'}
                 />
@@ -894,7 +917,7 @@ function PhaseRow({ phase, user, now, isMobile, onRefresh, onToast }) {
                       width: '100%', background: 'var(--bg-2)',
                       border: `1px solid ${formErrors.name ? 'var(--danger)' : 'var(--border)'}`,
                       borderRadius: 'var(--r-md)', color: 'var(--text-0)',
-                      fontSize: '13px', padding: '9px 12px', outline: 'none',
+                      fontSize: '15px', padding: '9px 12px', outline: 'none',
                       transition: 'border-color var(--t-fast)',
                     }}
                     onFocus={e => e.target.style.borderColor = 'var(--accent)'}
@@ -911,14 +934,14 @@ function PhaseRow({ phase, user, now, isMobile, onRefresh, onToast }) {
               <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 'var(--sp-3)' }}>
                 <FormField label="Start Date" required error={formErrors.start_date}>
                   <input type="date" value={form.start_date} onChange={e => f('start_date', e.target.value)}
-                    style={{ width: '100%', background: 'var(--bg-2)', border: `1px solid ${formErrors.start_date ? 'var(--danger)' : 'var(--border)'}`, borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '13px', padding: '9px 12px', outline: 'none' }}
+                    style={{ width: '100%', background: 'var(--bg-2)', border: `1px solid ${formErrors.start_date ? 'var(--danger)' : 'var(--border)'}`, borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '15px', padding: '9px 12px', outline: 'none' }}
                     onFocus={e => e.target.style.borderColor = 'var(--accent)'}
                     onBlur={e => e.target.style.borderColor = formErrors.start_date ? 'var(--danger)' : 'var(--border)'}
                   />
                 </FormField>
                 <FormField label="End Date" required error={formErrors.end_date}>
                   <input type="date" value={form.end_date} onChange={e => f('end_date', e.target.value)}
-                    style={{ width: '100%', background: 'var(--bg-2)', border: `1px solid ${formErrors.end_date ? 'var(--danger)' : 'var(--border)'}`, borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '13px', padding: '9px 12px', outline: 'none' }}
+                    style={{ width: '100%', background: 'var(--bg-2)', border: `1px solid ${formErrors.end_date ? 'var(--danger)' : 'var(--border)'}`, borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '15px', padding: '9px 12px', outline: 'none' }}
                     onFocus={e => e.target.style.borderColor = 'var(--accent)'}
                     onBlur={e => e.target.style.borderColor = formErrors.end_date ? 'var(--danger)' : 'var(--border)'}
                   />
@@ -931,7 +954,7 @@ function PhaseRow({ phase, user, now, isMobile, onRefresh, onToast }) {
                   placeholder="Phase details, objectives, notes…"
                   rows={3}
                   maxLength={5000}
-                  style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '13px', padding: '10px 12px', outline: 'none', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.6 }}
+                  style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '15px', padding: '10px 12px', outline: 'none', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.6 }}
                   onFocus={e => e.target.style.borderColor = 'var(--accent)'}
                   onBlur={e => e.target.style.borderColor = 'var(--border)'}
                 />
@@ -1053,7 +1076,7 @@ function PhaseDetail({ phase, h, now, isMobile, user, onRefresh, onToast, comple
       {isMobile && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <Badge color={STATUS_COLOR[phase.status]}>{STATUS_LABEL[phase.status]}</Badge>
-          <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>{formatDate(phase.start_date)} → {formatDate(phase.end_date)}</span>
+          <span style={{ fontSize: '13px', color: 'var(--text-3)' }}>{formatDate(phase.start_date)} → {formatDate(phase.end_date)}</span>
         </div>
       )}
 
@@ -1061,7 +1084,7 @@ function PhaseDetail({ phase, h, now, isMobile, user, onRefresh, onToast, comple
       {phase.description && (
         <div>
           <SectionLabel>Description</SectionLabel>
-          <p style={{ fontSize: '13px', color: 'var(--text-1)', lineHeight: 1.7, margin: 0, whiteSpace: 'pre-wrap' }}>{phase.description}</p>
+          <p style={{ fontSize: '15px', color: 'var(--text-1)', lineHeight: 1.7, margin: 0, whiteSpace: 'pre-wrap' }}>{phase.description}</p>
         </div>
       )}
 
@@ -1075,8 +1098,8 @@ function PhaseDetail({ phase, h, now, isMobile, user, onRefresh, onToast, comple
                 <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 700, color: '#0a0a0a' }}>
                   {(u.name || '?')[0].toUpperCase()}
                 </div>
-                <span style={{ fontSize: '12px', fontWeight: 500 }}>{u.name}</span>
-                <span style={{ fontSize: '10px', color: 'var(--text-3)', textTransform: 'capitalize' }}>{u.role}</span>
+                <span style={{ fontSize: '14px', fontWeight: 500 }}>{u.name}</span>
+                <span style={{ fontSize: '12px', color: 'var(--text-3)', textTransform: 'capitalize' }}>{u.role}</span>
               </div>
             ))}
           </div>
@@ -1087,18 +1110,18 @@ function PhaseDetail({ phase, h, now, isMobile, user, onRefresh, onToast, comple
       {h && (
         <div style={{ borderRadius: 'var(--r-md)', border: `1px solid ${h.barColor}35`, overflow: 'hidden' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px', background: `${h.barColor}14` }}>
-            <span style={{ fontSize: '12px', fontWeight: 700, color: h.barColor }}>
+            <span style={{ fontSize: '14px', fontWeight: 700, color: h.barColor }}>
               {phase.status === 'completed' ? '✅ Completed' : phase.status === 'on_hold' ? '⏸ On Hold' : phase.status === 'pending' ? '🕐 Pending' : `${h.remaining}h remaining`}
             </span>
-            <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>{h.allocated}h allocated</span>
+            <span style={{ fontSize: '13px', color: 'var(--text-3)' }}>{h.allocated}h allocated</span>
           </div>
           <div style={{ padding: '10px 14px', background: 'var(--bg-3)', display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ position: 'relative', height: 10, background: 'var(--bg-2)', borderRadius: 99, overflow: 'hidden' }}>
               <div style={{ height: '100%', width: `${h.consumedPct}%`, background: h.barColor, borderRadius: 99, transition: 'width 0.5s ease' }} />
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>{statusLabel}</span>
-              <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>{h.consumedPct}% used</span>
+              <span style={{ fontSize: '13px', color: 'var(--text-3)' }}>{statusLabel}</span>
+              <span style={{ fontSize: '13px', color: 'var(--text-3)' }}>{h.consumedPct}% used</span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 4 }}>
               {(phase.status === 'completed'
@@ -1115,7 +1138,7 @@ function PhaseDetail({ phase, h, now, isMobile, user, onRefresh, onToast, comple
               ).map(({ label, value, color }) => (
                 <div key={label} style={{ textAlign: 'center', padding: '6px 4px', background: 'var(--bg-2)', borderRadius: 'var(--r-sm)' }}>
                   <div style={{ fontSize: '14px', fontWeight: 700, color }}>{value}</div>
-                  <div style={{ fontSize: '10px', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 2 }}>{label}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 2 }}>{label}</div>
                 </div>
               ))}
             </div>
@@ -1132,7 +1155,7 @@ function PhaseDetail({ phase, h, now, isMobile, user, onRefresh, onToast, comple
           {canEdit && (
             <button
               onClick={() => setShowAddMilestone(s => !s)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}
             >
               <Plus size={11} />{showAddMilestone ? 'Cancel' : 'Add'}
             </button>
@@ -1147,7 +1170,7 @@ function PhaseDetail({ phase, h, now, isMobile, user, onRefresh, onToast, comple
                 onChange={e => setMsForm(p => ({ ...p, title: e.target.value }))}
                 placeholder="Milestone title…"
                 maxLength={200}
-                style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '13px', padding: '8px 12px', outline: 'none' }}
+                style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '15px', padding: '8px 12px', outline: 'none' }}
                 onFocus={e => e.target.style.borderColor = 'var(--accent)'}
                 onBlur={e => e.target.style.borderColor = 'var(--border)'}
               />
@@ -1155,12 +1178,12 @@ function PhaseDetail({ phase, h, now, isMobile, user, onRefresh, onToast, comple
                 type="date"
                 value={msForm.due_date}
                 onChange={e => setMsForm(p => ({ ...p, due_date: e.target.value }))}
-                style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '13px', padding: '8px 12px', outline: 'none' }}
+                style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '15px', padding: '8px 12px', outline: 'none' }}
                 onFocus={e => e.target.style.borderColor = 'var(--accent)'}
                 onBlur={e => e.target.style.borderColor = 'var(--border)'}
               />
             </div>
-            {msError && <div style={{ fontSize: '11px', color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 4 }}><AlertTriangle size={11} />{msError}</div>}
+            {msError && <div style={{ fontSize: '13px', color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 4 }}><AlertTriangle size={11} />{msError}</div>}
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <Btn type="submit" size="sm" loading={msLoading} icon={<Plus size={12} />}>Add Milestone</Btn>
             </div>
@@ -1197,17 +1220,17 @@ function PhaseDetail({ phase, h, now, isMobile, user, onRefresh, onToast, comple
                     {m.completed ? <CheckCircle size={15} /> : <Circle size={15} />}
                   </span>
                 )}
-                <span style={{ fontSize: '12px', color: m.completed ? 'var(--text-3)' : 'var(--text-1)', textDecoration: m.completed ? 'line-through' : 'none', flex: 1 }}>
+                <span style={{ fontSize: '14px', color: m.completed ? 'var(--text-3)' : 'var(--text-1)', textDecoration: m.completed ? 'line-through' : 'none', flex: 1 }}>
                   {m.title}
                 </span>
-                <span style={{ fontSize: '10px', color: 'var(--text-3)', flexShrink: 0 }}>
+                <span style={{ fontSize: '12px', color: 'var(--text-3)', flexShrink: 0 }}>
                   Due {formatDate(m.due_date)}
                 </span>
               </div>
             ))}
           </div>
         ) : !showAddMilestone && (
-          <p style={{ fontSize: '12px', color: 'var(--text-3)', fontStyle: 'italic' }}>
+          <p style={{ fontSize: '14px', color: 'var(--text-3)', fontStyle: 'italic' }}>
             No milestones yet.{canEdit ? ' Add one above.' : ''}
           </p>
         )}
@@ -1215,7 +1238,7 @@ function PhaseDetail({ phase, h, now, isMobile, user, onRefresh, onToast, comple
 
       {/* Empty state */}
       {!phase.description && !phase.assignee_details?.length && !h && !phase.milestones?.length && (
-        <p style={{ color: 'var(--text-3)', fontSize: '13px', margin: 0 }}>
+        <p style={{ color: 'var(--text-3)', fontSize: '15px', margin: 0 }}>
           No additional details available.{canEdit ? ' Click ✏️ to edit.' : ''}
         </p>
       )}
@@ -1225,7 +1248,7 @@ function PhaseDetail({ phase, h, now, isMobile, user, onRefresh, onToast, comple
 
 function SectionLabel({ children, style }) {
   return (
-    <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8, ...style }}>
+    <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8, ...style }}>
       {children}
     </div>
   )
@@ -1288,14 +1311,14 @@ function CreateTimelineModal({ user, onClose, onCreated }) {
       <form onSubmit={submit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
 
         {isResource && (
-          <div style={{ background: 'rgba(96,165,250,0.08)', border: '1px solid rgba(96,165,250,0.25)', borderRadius: 'var(--r-md)', padding: '10px 14px', fontSize: '13px', color: 'var(--info)', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+          <div style={{ background: 'rgba(96,165,250,0.08)', border: '1px solid rgba(96,165,250,0.25)', borderRadius: 'var(--r-md)', padding: '10px 14px', fontSize: '15px', color: 'var(--info)', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
             <Info size={14} style={{ flexShrink: 0, marginTop: 2 }} />
             <span>This is your main phase workspace. Use it to follow assigned project timelines and submit edit or delete approval requests when required.</span>
           </div>
         )}
 
         {apiError && (
-          <div style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 'var(--r-md)', padding: '10px 14px', fontSize: '13px', color: 'var(--danger)', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+          <div style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 'var(--r-md)', padding: '10px 14px', fontSize: '15px', color: 'var(--danger)', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
             <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 2 }} />
             <span>{apiError}</span>
           </div>
@@ -1308,7 +1331,7 @@ function CreateTimelineModal({ user, onClose, onCreated }) {
             placeholder="e.g. Design Phase, Development Sprint 1…"
             maxLength={200}
             autoFocus
-            style={{ width: '100%', background: 'var(--bg-2)', border: `1px solid ${errors.name ? 'var(--danger)' : 'var(--border)'}`, borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '13px', padding: '10px 12px', outline: 'none' }}
+            style={{ width: '100%', background: 'var(--bg-2)', border: `1px solid ${errors.name ? 'var(--danger)' : 'var(--border)'}`, borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '15px', padding: '10px 12px', outline: 'none' }}
             onFocus={e => e.target.style.borderColor = 'var(--accent)'}
             onBlur={e => e.target.style.borderColor = errors.name ? 'var(--danger)' : 'var(--border)'}
           />
@@ -1327,14 +1350,14 @@ function CreateTimelineModal({ user, onClose, onCreated }) {
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 'var(--sp-3)' }}>
           <FormField label="Start Date" required error={errors.start_date}>
             <input type="date" value={form.start_date} onChange={e => f('start_date', e.target.value)}
-              style={{ width: '100%', background: 'var(--bg-2)', border: `1px solid ${errors.start_date ? 'var(--danger)' : 'var(--border)'}`, borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '13px', padding: '10px 12px', outline: 'none' }}
+              style={{ width: '100%', background: 'var(--bg-2)', border: `1px solid ${errors.start_date ? 'var(--danger)' : 'var(--border)'}`, borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '15px', padding: '10px 12px', outline: 'none' }}
               onFocus={e => e.target.style.borderColor = 'var(--accent)'}
               onBlur={e => e.target.style.borderColor = errors.start_date ? 'var(--danger)' : 'var(--border)'}
             />
           </FormField>
           <FormField label="End Date" required error={errors.end_date}>
             <input type="date" value={form.end_date} onChange={e => f('end_date', e.target.value)}
-              style={{ width: '100%', background: 'var(--bg-2)', border: `1px solid ${errors.end_date ? 'var(--danger)' : 'var(--border)'}`, borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '13px', padding: '10px 12px', outline: 'none' }}
+              style={{ width: '100%', background: 'var(--bg-2)', border: `1px solid ${errors.end_date ? 'var(--danger)' : 'var(--border)'}`, borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '15px', padding: '10px 12px', outline: 'none' }}
               onFocus={e => e.target.style.borderColor = 'var(--accent)'}
               onBlur={e => e.target.style.borderColor = errors.end_date ? 'var(--danger)' : 'var(--border)'}
             />
@@ -1343,7 +1366,7 @@ function CreateTimelineModal({ user, onClose, onCreated }) {
 
         {/* Duration preview */}
         {workDays > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'var(--bg-3)', borderRadius: 'var(--r-md)', fontSize: '12px', color: 'var(--text-2)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'var(--bg-3)', borderRadius: 'var(--r-md)', fontSize: '14px', color: 'var(--text-2)' }}>
             <Clock size={13} style={{ color: 'var(--accent)' }} />
             <span><strong style={{ color: 'var(--text-0)' }}>{workDays}</strong> working days · <strong style={{ color: 'var(--text-0)' }}>{workDays * 8}h</strong> allocated</span>
           </div>
@@ -1358,7 +1381,7 @@ function CreateTimelineModal({ user, onClose, onCreated }) {
           />
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', background: 'var(--bg-3)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', marginBottom: 0 }}>
             <div style={{ width: 12, height: 12, borderRadius: 3, background: STATUS_PHASE_COLOR[form.status] }} />
-            <span style={{ fontSize: '12px', color: 'var(--text-2)' }}>Color auto-assigned</span>
+            <span style={{ fontSize: '14px', color: 'var(--text-2)' }}>Color auto-assigned</span>
           </div>
         </div>
 
@@ -1369,7 +1392,7 @@ function CreateTimelineModal({ user, onClose, onCreated }) {
             placeholder="Phase goals, scope, notes…"
             rows={3}
             maxLength={5000}
-            style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '13px', padding: '10px 12px', outline: 'none', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.6 }}
+            style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '15px', padding: '10px 12px', outline: 'none', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.6 }}
             onFocus={e => e.target.style.borderColor = 'var(--accent)'}
             onBlur={e => e.target.style.borderColor = 'var(--border)'}
           />
@@ -1435,7 +1458,7 @@ function ApprovalRequestModal({ phase, type, onClose, onSubmitted }) {
           border: `1px solid ${isDelete ? 'rgba(248,113,113,0.3)' : 'rgba(96,165,250,0.3)'}`,
           borderRadius: 'var(--r-md)',
           padding: '12px 14px',
-          fontSize: '13px',
+          fontSize: '15px',
           color: isDelete ? 'var(--danger)' : 'var(--info)',
           lineHeight: 1.6,
           display: 'flex', gap: 10, alignItems: 'flex-start',
@@ -1453,16 +1476,16 @@ function ApprovalRequestModal({ phase, type, onClose, onSubmitted }) {
         <div style={{ background: 'var(--bg-3)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', padding: '10px 14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
             <div style={{ width: 8, height: 8, borderRadius: 2, background: STATUS_PHASE_COLOR[phase.status] }} />
-            <span style={{ fontSize: '13px', fontWeight: 600 }}>{phase.name}</span>
+            <span style={{ fontSize: '15px', fontWeight: 600 }}>{phase.name}</span>
             <Badge color={STATUS_COLOR[phase.status]}>{STATUS_LABEL[phase.status]}</Badge>
           </div>
-          <div style={{ fontSize: '11px', color: 'var(--text-3)' }}>
+          <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>
             {formatDate(phase.start_date)} → {formatDate(phase.end_date)}
           </div>
         </div>
 
         {err && (
-          <div style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 'var(--r-md)', padding: '10px 14px', fontSize: '13px', color: 'var(--danger)', display: 'flex', gap: 8 }}>
+          <div style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 'var(--r-md)', padding: '10px 14px', fontSize: '15px', color: 'var(--danger)', display: 'flex', gap: 8 }}>
             <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 2 }} />{err}
           </div>
         )}
@@ -1482,17 +1505,17 @@ function ApprovalRequestModal({ phase, type, onClose, onSubmitted }) {
               width: '100%', boxSizing: 'border-box',
               background: 'var(--bg-2)', border: '1px solid var(--border)',
               borderRadius: 'var(--r-md)', color: 'var(--text-0)',
-              fontSize: '13px', padding: '10px 12px', outline: 'none',
+              fontSize: '15px', padding: '10px 12px', outline: 'none',
               resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.6,
             }}
             onFocus={e => e.target.style.borderColor = 'var(--accent)'}
             onBlur={e => e.target.style.borderColor = 'var(--border)'}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
-            <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>
+            <span style={{ fontSize: '13px', color: 'var(--text-3)' }}>
               {isDelete ? 'Admin will review and notify you of their decision.' : 'After approval, go to Approvals to apply your specific changes.'}
             </span>
-            <span style={{ fontSize: '11px', color: reason.length > 900 ? 'var(--warning)' : 'var(--text-3)' }}>
+            <span style={{ fontSize: '13px', color: reason.length > 900 ? 'var(--warning)' : 'var(--text-3)' }}>
               {reason.length}/1000
             </span>
           </div>

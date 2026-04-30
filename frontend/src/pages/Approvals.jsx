@@ -1,19 +1,18 @@
 import React, { useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle, XCircle, ChevronDown, ChevronUp, FileEdit, Trash2, Edit2, Save, X } from 'lucide-react'
+import { CheckCircle, XCircle, ChevronDown, ChevronUp, FileEdit, Trash2, Edit2, Save, X, Clock } from 'lucide-react'
 import { Spinner, Input } from '@/components/ui/index.jsx'
 import { timeAgo, extractError } from '@/utils/index.js'
 import { useAuthStore } from '@/stores/authStore.js'
-import { approvalsApi, timelineApprovalsApi } from '@/api/index.js'
+import { approvalsApi, timelineApprovalsApi, resourcesApi } from '@/api/index.js'
 
-const TYPE_COLOR   = { edit: 'var(--info)', delete: 'var(--danger)', create: 'var(--accent)' }
-const TYPE_BG      = { edit: 'rgba(122,166,184,0.12)', delete: 'rgba(217,108,108,0.12)', create: 'rgba(35,114,39,0.12)' }
+const TYPE_COLOR   = { edit: 'var(--info)', delete: 'var(--danger)', create: 'var(--accent)', timesheet: 'var(--success)' }
+const TYPE_BG      = { edit: 'rgba(122,166,184,0.12)', delete: 'rgba(217,108,108,0.12)', create: 'rgba(35,114,39,0.12)', timesheet: 'rgba(74,222,128,0.12)' }
 const TYPE_ICON    = { edit: FileEdit, delete: Trash2, create: Edit2 }
 const STATUS_COLOR = { pending: 'var(--warning)', approved: 'var(--success)', rejected: 'var(--danger)' }
 const STATUS_BG    = { pending: 'rgba(111,166,118,0.12)', approved: 'rgba(73,163,95,0.12)', rejected: 'rgba(217,108,108,0.12)' }
-const SEL = { width: '100%', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-1)', fontSize: '13px', padding: '8px 12px', outline: 'none', boxSizing: 'border-box' }
+const SEL = { width: '100%', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-1)', fontSize: '15px', padding: '8px 12px', outline: 'none', boxSizing: 'border-box' }
 
-// FIX: Approvals had no mobile awareness at all
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
   useEffect(() => {
@@ -28,7 +27,8 @@ export default function ApprovalsPage() {
   const isMobile = useIsMobile()
   const qc      = useQueryClient()
   const user    = useAuthStore(s => s.user)
-  const isAdmin = user?.role === 'admin'
+  const isAdmin   = user?.role === 'admin'
+  const isManager = user?.role === 'manager'
 
   useEffect(() => {
     qc.setQueryData(['approval-count'], { count: 0 })
@@ -42,7 +42,8 @@ export default function ApprovalsPage() {
     } catch (e) { /* silent */ }
   }
 
-  const [statusFilter, setStatusFilter] = useState(isAdmin ? 'pending' : '')
+  // Managers default to 'pending' so they immediately see actionable items
+  const [statusFilter, setStatusFilter] = useState(isAdmin || isManager ? 'pending' : '')
   const [expanded, setExpanded]         = useState(null)
   const [actionLoading, setActionLoading] = useState(null)
   const [adminNote, setAdminNote]       = useState({})
@@ -52,41 +53,98 @@ export default function ApprovalsPage() {
   const [error, setError]               = useState('')
   const [successMsg, setSuccessMsg]     = useState('')
 
+  const approvalStatusParam = statusFilter || undefined
   const { data: projectData, isLoading: projectLoading } = useQuery({
-    queryKey: ['approvals', statusFilter],
-    queryFn: () => approvalsApi.list({ status: statusFilter || undefined }).then(r => r.data.results || r.data),
+    queryKey: ['approvals', approvalStatusParam],
+    queryFn: () => approvalsApi.list({ page_size: 500, status: approvalStatusParam }).then(r => r.data.results || r.data),
     refetchInterval: 15000,
   })
 
   const { data: timelineData, isLoading: timelineLoading } = useQuery({
-    queryKey: ['timeline-approvals', statusFilter],
-    queryFn: () => timelineApprovalsApi.list({ status: statusFilter || undefined }).then(r => r.data.results || r.data),
+    queryKey: ['timeline-approvals', approvalStatusParam],
+    queryFn: () => timelineApprovalsApi.list({ page_size: 500, status: approvalStatusParam }).then(r => r.data.results || r.data),
     refetchInterval: 15000,
   })
 
-  const isLoading = projectLoading || timelineLoading
+  // Fetch pending time entries for manager approval only (not admin)
+  const canApproveTimesheets = isManager
+  const { data: timeEntriesData, isLoading: timeEntriesLoading } = useQuery({
+    queryKey: ['pending-time-entries', user?.id],
+    queryFn: async () => {
+      const res = await resourcesApi.timeEntries({ approved: 'false', page_size: 500 })
+      const all = res.data.results || res.data || []
+      // Client-side guard: only truly unapproved entries
+      return all.filter(e => e.approved === false || e.approved === 'false')
+    },
+    enabled: canApproveTimesheets,
+    refetchInterval: 15000,
+  })
+
+  const isLoading = projectLoading || timelineLoading || timeEntriesLoading
 
   const requests = React.useMemo(() => {
-    const proj = (projectData || []).map(r => ({ ...r, _kind: 'project' }))
-    const tl   = (timelineData  || []).map(r => ({ ...r, _kind: 'timeline', project_name: r.timeline_name || r.project_name || 'Timeline' }))
+    const proj = (projectData || []).map(r => ({ ...r, _kind: 'project', _uid: `project-${r.id}` }))
+    const tl   = (timelineData  || []).map(r => ({ ...r, _kind: 'timeline', _uid: `timeline-${r.id}`, project_name: r.timeline_name || r.project_name || 'Timeline' }))
     return [...proj, ...tl].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
   }, [projectData, timelineData])
 
-  const pendingCount = requests.filter(r => r.status === 'pending').length
+  // Combine project/timeline approvals with timesheet entries for manager
+  const allRequests = React.useMemo(() => {
+    if (!canApproveTimesheets) return requests
+    const entries = timeEntriesData || []
+    const timesheetReqs = entries.map(entry => ({
+      id: entry.id,
+      _uid: `timesheet-${entry.id}`,
+      _kind: 'timesheet',
+      project_name: entry.project_name || 'Unknown Project',
+      timeline_name: entry.timeline_name || 'Project-level log',
+      resource_name: entry.resource_name || 'Unknown Resource',
+      request_type: 'timesheet',
+      status: 'pending',
+      date: entry.date,
+      hours: entry.hours,
+      description: entry.description,
+      created_at: entry.created_at || entry.date,
+      _entryId: entry.id,
+    }))
+    // Timesheets are always 'pending' — show on pending or all tabs
+    const filteredTimesheets = (statusFilter === '' || statusFilter === 'pending') ? timesheetReqs : []
+    return [...requests, ...filteredTimesheets].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+  }, [requests, timeEntriesData, canApproveTimesheets, statusFilter])
+
+  const pendingTimesheetCount = (timeEntriesData || []).length
+  const pendingCount = allRequests.filter(r => r.status === 'pending').length
 
   function flash(msg) { setSuccessMsg(msg); setTimeout(() => setSuccessMsg(''), 4000) }
   const af = (k, v) => setApplyForm(p => ({ ...p, [k]: v }))
 
-  async function handleApprove(id, kind) {
-    setActionLoading(id + '_approve'); setError('')
+  async function handleTimesheetApproval(req) {
+    const entryId = req._entryId || req.id?.toString().replace('timesheet-', '')
+    if (!entryId) { setError('Cannot find time entry ID.'); return }
+    setActionLoading(req._uid + '_approve'); setError('')
     try {
+      await resourcesApi.approveTimeEntry(entryId)
+      qc.invalidateQueries({ queryKey: ['pending-time-entries'] })
+      qc.invalidateQueries({ queryKey: ['approval-count'] })
+      setExpanded(null)
+      flash('Time entry approved — resource has been notified.')
+    } catch (err) { setError(extractError(err)) }
+    finally { setActionLoading(null) }
+  }
+
+  async function handleApprove(id, kind, req) {
+    setActionLoading(req?._uid ? req._uid + '_approve' : `${kind}-${id}_approve`); setError('')
+    try {
+      if (kind === 'timesheet') {
+        return handleTimesheetApproval(req || { id, _entryId: id?.toString().replace('timesheet-', '') })
+      }
       const api = kind === 'timeline' ? timelineApprovalsApi : approvalsApi
-      await api.approve(id, { admin_note: adminNote[id] || '' })
-      qc.invalidateQueries(['approvals'])
-      qc.invalidateQueries(['timeline-approvals'])
-      qc.invalidateQueries(['approval-count'])
-      qc.invalidateQueries(['projects'])
-      qc.invalidateQueries(['timelines'])
+      await api.approve(id, { admin_note: adminNote[req?._uid || id] || '' })
+      qc.invalidateQueries({ queryKey: ['approvals'] })
+      qc.invalidateQueries({ queryKey: ['timeline-approvals'] })
+      qc.invalidateQueries({ queryKey: ['approval-count'] })
+      qc.invalidateQueries({ queryKey: ['projects'] })
+      qc.invalidateQueries({ queryKey: ['timelines'] })
       setExpanded(null)
       flash('Request approved — user has been notified.')
     } catch (err) { setError(extractError(err)) }
@@ -94,13 +152,14 @@ export default function ApprovalsPage() {
   }
 
   async function handleReject(id, kind) {
-    setActionLoading(id + '_reject'); setError('')
+    const uid = `${kind}-${id}`
+    setActionLoading(uid + '_reject'); setError('')
     try {
       const api = kind === 'timeline' ? timelineApprovalsApi : approvalsApi
-      await api.reject(id, { admin_note: adminNote[id] || '' })
-      qc.invalidateQueries(['approvals'])
-      qc.invalidateQueries(['timeline-approvals'])
-      qc.invalidateQueries(['approval-count'])
+      await api.reject(id, { admin_note: adminNote[uid] || '' })
+      qc.invalidateQueries({ queryKey: ['approvals'] })
+      qc.invalidateQueries({ queryKey: ['timeline-approvals'] })
+      qc.invalidateQueries({ queryKey: ['approval-count'] })
       setExpanded(null)
       flash('Request rejected.')
     } catch (err) { setError(extractError(err)) }
@@ -108,7 +167,7 @@ export default function ApprovalsPage() {
   }
 
   function openApplyForm(req) {
-    setApplyingId(req.id)
+    setApplyingId(req._uid)
     setExpanded(null)
 
     if (req._kind === 'timeline') {
@@ -146,22 +205,41 @@ export default function ApprovalsPage() {
     try {
       if (req._kind === 'timeline') {
         const payload = {}
-        Object.entries(applyForm).forEach(([k, v]) => { if (v !== '') payload[k] = v })
-        if (payload.hours_allocated !== undefined) payload.hours_allocated = parseInt(payload.hours_allocated) || 0
+        const dateFields = ['start_date', 'end_date']
+        const intFields = ['hours_allocated']
+        Object.entries(applyForm).forEach(([k, v]) => {
+          if (v === '' || v === null || v === undefined) return
+          if (intFields.includes(k)) { payload[k] = parseInt(v) || 0 }
+          else { payload[k] = v }
+        })
+        // Remove invalid dates
+        dateFields.forEach(k => { if (payload[k] && !/^\d{4}-\d{2}-\d{2}$/.test(payload[k])) delete payload[k] })
+        if (Object.keys(payload).length === 0) { setError('No changes to apply.'); setApplyLoading(false); return }
         await timelineApprovalsApi.applyEdit(req.id, payload)
-        qc.invalidateQueries(['timeline-approvals'])
-        qc.invalidateQueries(['timelines'])
+        qc.invalidateQueries({ queryKey: ['timeline-approvals'] })
+        qc.invalidateQueries({ queryKey: ['timelines'] })
       } else {
         const payload = {}
-        Object.entries(applyForm).forEach(([k, v]) => { if (v !== '') payload[k] = v })
-        ;['resource_l1','resource_l2','resource_l3','resource_l4'].forEach(k => {
-          if (payload[k] !== undefined) payload[k] = parseInt(payload[k]) || 0
+        const intFields = ['resource_l1','resource_l2','resource_l3','resource_l4']
+        const floatFields = ['hours']
+        const dateFields = ['start_date', 'end_date']
+        const skipFields = ['resource_details', 'client_detail', 'manager_detail', 'resources']
+        Object.entries(applyForm).forEach(([k, v]) => {
+          if (skipFields.includes(k)) return
+          if (v === '' || v === null || v === undefined) return
+          if (intFields.includes(k)) { payload[k] = parseInt(v) || 0 }
+          else if (floatFields.includes(k)) { payload[k] = parseFloat(v) || 0 }
+          else { payload[k] = v }
         })
-        if (payload.hours !== undefined) payload.hours = parseFloat(payload.hours) || 0
+        // Remove invalid dates
+        dateFields.forEach(k => { if (payload[k] && !/^\d{4}-\d{2}-\d{2}$/.test(payload[k])) delete payload[k] })
+        // Never send client/manager as they're not in allowed_fields on backend
+        delete payload.client; delete payload.manager
+        if (Object.keys(payload).length === 0) { setError('No changes to apply.'); setApplyLoading(false); return }
         await approvalsApi.applyEdit(req.id, payload)
-        qc.invalidateQueries(['approvals'])
-        qc.invalidateQueries(['projects'])
-        qc.invalidateQueries(['project', String(req.project)])
+        qc.invalidateQueries({ queryKey: ['approvals'] })
+        qc.invalidateQueries({ queryKey: ['projects'] })
+        qc.invalidateQueries({ queryKey: ['project', String(req.project)] })
       }
       setApplyingId(null)
       flash('Edit applied successfully!')
@@ -169,13 +247,36 @@ export default function ApprovalsPage() {
     finally { setApplyLoading(false) }
   }
 
-  const filterTabs = isAdmin
+  // FIX: Manager gets same tab set as admin — default starts at 'pending'
+  const filterTabs = (isAdmin || isManager)
     ? [['pending','Pending'], ['approved','Approved'], ['rejected','Rejected'], ['','All']]
     : [['','All'], ['pending','Pending'], ['approved','Approved'], ['rejected','Rejected']]
 
-  // FIX: On mobile, margin:'-32px' and padding:'20px 32px' caused horizontal overflow.
-  // Now use responsive padding that matches the main layout gutter.
   const hPad = isMobile ? '16px' : '32px'
+
+  // FIX: Subtitle copy is now role-aware
+  function getSubtitle() {
+    if (isAdmin) {
+      return pendingCount > 0
+        ? <><span style={{ color: 'var(--warning)', fontWeight: 700 }}>{pendingCount} pending</span> · needs your review</>
+        : <span style={{ color: 'var(--success)' }}>All caught up ✓</span>
+    }
+    if (isManager) {
+      return pendingTimesheetCount > 0
+        ? <><span style={{ color: 'var(--warning)', fontWeight: 700 }}>{pendingTimesheetCount} timesheet{pendingTimesheetCount !== 1 ? 's' : ''} pending</span> · waiting for your approval</>
+        : <span style={{ color: 'var(--success)' }}>All caught up ✓</span>
+    }
+    return 'Your edit & delete requests'
+  }
+
+  // FIX: Empty state copy is role-aware
+  function getEmptyState() {
+    if (isAdmin) return { title: 'No requests to review.', sub: 'Manager requests will appear here.' }
+    if (isManager) return { title: 'No pending timesheets.', sub: 'Submitted time entries from your resources will appear here for approval.' }
+    return { title: 'No approval requests yet.', sub: 'Use "Request Edit" or "Request Delete" on a project.' }
+  }
+
+  const emptyState = getEmptyState()
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:0, height:'calc(100vh - 60px)', overflow:'hidden', margin: isMobile ? '-16px' : '-32px' }}>
@@ -185,19 +286,18 @@ export default function ApprovalsPage() {
         <div style={{ display:'flex', alignItems:'flex-start', gap:12, flexWrap:'wrap', flex:1, minWidth:0 }}>
           <div style={{ minWidth:0 }}>
             <h1 style={{ fontFamily:'var(--font-display)', fontWeight:800, fontSize: isMobile ? '1.3rem' : '1.6rem', letterSpacing:'-0.02em' }}>Approvals</h1>
-            <p style={{ color:'var(--text-2)', fontSize:'12px', marginTop:2 }}>
-              {isAdmin
-                ? pendingCount > 0 ? <><span style={{ color:'var(--warning)', fontWeight:700 }}>{pendingCount} pending</span> · needs your review</> : <span style={{ color:'var(--success)' }}>All caught up ✓</span>
-                : 'Your edit & delete requests'
-              }
-            </p>
+            <p style={{ color:'var(--text-2)', fontSize:'12px', marginTop:2 }}>{getSubtitle()}</p>
           </div>
 
-          {/* Filter tabs — scroll horizontally on mobile instead of wrapping */}
+          {/* Filter tabs */}
           <div style={{ display:'flex', gap:3, background:'var(--bg-2)', padding:3, borderRadius:'var(--r-md)', border:'1px solid var(--border)', overflowX:'auto', flexShrink:0 }}>
             {filterTabs.map(([val, label]) => (
               <button key={val} onClick={() => setStatusFilter(val)} style={{ background:statusFilter===val?'var(--bg-1)':'transparent', border:statusFilter===val?'1px solid var(--border)':'1px solid transparent', borderRadius:'var(--r-sm)', padding:'5px 12px', fontSize:'12px', fontWeight:statusFilter===val?600:400, color:statusFilter===val?'var(--text-0)':'var(--text-3)', cursor:'pointer', transition:'all var(--t-fast)', whiteSpace:'nowrap' }}>
                 {label}
+                {/* Show live count badge on Pending tab for managers/admins */}
+                {val === 'pending' && (isAdmin || isManager) && pendingCount > 0 && (
+                  <span style={{ marginLeft:5, background:'var(--warning)', color:'#000', borderRadius:'var(--r-full)', fontSize:'10px', fontWeight:800, padding:'1px 5px' }}>{pendingCount}</span>
+                )}
               </button>
             ))}
           </div>
@@ -224,27 +324,27 @@ export default function ApprovalsPage() {
       <div style={{ flex:1, overflowY:'auto', padding:`20px ${hPad}` }}>
         {isLoading ? (
           <div style={{ display:'flex', justifyContent:'center', paddingTop:80 }}><Spinner /></div>
-        ) : requests.length === 0 ? (
+        ) : allRequests.length === 0 ? (
           <div style={{ display:'flex', flexDirection:'column', alignItems:'center', paddingTop:100, gap:12 }}>
             <div style={{ width:56, height:56, borderRadius:'50%', background:'var(--bg-2)', display:'flex', alignItems:'center', justifyContent:'center' }}>
               <CheckCircle size={24} color="var(--text-3)" />
             </div>
-            <div style={{ fontWeight:600, fontSize:'15px', color:'var(--text-1)' }}>{isAdmin ? 'No requests to review.' : 'No approval requests yet.'}</div>
-            <div style={{ fontSize:'13px', color:'var(--text-3)', textAlign:'center' }}>{isAdmin ? 'Manager requests will appear here.' : 'Use "Request Edit" or "Request Delete" on a project.'}</div>
+            <div style={{ fontWeight:600, fontSize:'15px', color:'var(--text-1)' }}>{emptyState.title}</div>
+            <div style={{ fontSize:'13px', color:'var(--text-3)', textAlign:'center', maxWidth:340 }}>{emptyState.sub}</div>
           </div>
         ) : (
           <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-            {requests.map(req => {
-              const TypeIcon    = TYPE_ICON[req.request_type] || FileEdit
-              const isOpen      = expanded === req.id
-              const isApplying  = applyingId === req.id
+            {allRequests.map(req => {
+              const TypeIcon    = req._kind === 'timesheet' ? Clock : (TYPE_ICON[req.request_type] || FileEdit)
+              const isOpen      = expanded === req._uid
+              const isApplying  = applyingId === req._uid
               const alreadyDone = req.proposed_changes?._applied === true
 
               return (
-                <div key={req.id} style={{ background:'var(--bg-1)', border:'1px solid var(--border)', borderLeft:`3px solid ${STATUS_COLOR[req.status]}`, borderRadius:'var(--r-md)', overflow:'hidden' }}>
+                <div key={req._uid} style={{ background:'var(--bg-1)', border:'1px solid var(--border)', borderLeft:`3px solid ${STATUS_COLOR[req.status]}`, borderRadius:'var(--r-md)', overflow:'hidden' }}>
 
                   {/* Header row */}
-                  <div onClick={() => { if (!isApplying) setExpanded(isOpen ? null : req.id) }}
+                  <div onClick={() => { if (!isApplying) setExpanded(isOpen ? null : req._uid) }}
                     style={{ display:'flex', alignItems:'center', gap: isMobile ? 10 : 16, padding: isMobile ? '12px 14px' : '14px 20px', cursor:isApplying?'default':'pointer', flexWrap: isMobile ? 'wrap' : 'nowrap' }}
                     onMouseEnter={e => { if(!isApplying) e.currentTarget.style.background='var(--bg-2)' }}
                     onMouseLeave={e => e.currentTarget.style.background='transparent'}
@@ -256,11 +356,17 @@ export default function ApprovalsPage() {
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap', marginBottom:3 }}>
                         <span style={{ fontWeight:700, fontSize:'13px', color:'var(--text-0)' }}>{req.project_name || 'Unknown Project'}</span>
-                        <span style={{ fontSize:'10px', fontWeight:700, padding:'2px 8px', borderRadius:'var(--r-full)', background:TYPE_BG[req.request_type], color:TYPE_COLOR[req.request_type], border:`1px solid ${TYPE_COLOR[req.request_type]}30`, textTransform:'uppercase', letterSpacing:'0.06em' }}>{req.request_type}</span>
+                        {/* FIX: Show resource name for timesheet entries so manager knows who submitted */}
+                        {req._kind === 'timesheet' && req.resource_name && (
+                          <span style={{ fontSize:'11px', color:'var(--text-2)', fontWeight:500 }}>by {req.resource_name}</span>
+                        )}
+                        <span style={{ fontSize:'10px', fontWeight:700, padding:'2px 8px', borderRadius:'var(--r-full)', background:TYPE_BG[req.request_type], color:TYPE_COLOR[req.request_type], border:`1px solid ${TYPE_COLOR[req.request_type]}30`, textTransform:'uppercase', letterSpacing:'0.06em' }}>
+                          {req._kind === 'timesheet' ? `${req.hours}h timesheet` : req.request_type}
+                        </span>
                         <span style={{ fontSize:'10px', fontWeight:700, padding:'2px 8px', borderRadius:'var(--r-full)', background:STATUS_BG[req.status], color:STATUS_COLOR[req.status], border:`1px solid ${STATUS_COLOR[req.status]}30`, textTransform:'uppercase', letterSpacing:'0.06em' }}>{alreadyDone ? 'applied ✓' : req.status}</span>
                       </div>
                       <div style={{ fontSize:'12px', color:'var(--text-2)' }}>
-                        {isAdmin ? <><strong>{req.requested_by_name}</strong> · </> : ''}{timeAgo(req.created_at)}
+                        {isAdmin && req._kind !== 'timesheet' ? <><strong>{req.requested_by_name}</strong> · </> : ''}{timeAgo(req.created_at)}
                         {req.resolved_by_name && <> · by <strong>{req.resolved_by_name}</strong></>}
                       </div>
                       {req.reason && <div style={{ fontSize:'12px', color:'var(--text-3)', marginTop:2, fontStyle:'italic' }}>"{req.reason}"</div>}
@@ -275,6 +381,20 @@ export default function ApprovalsPage() {
                         onMouseLeave={e => e.currentTarget.style.background='rgba(74,222,128,0.1)'}
                       >
                         <Edit2 size={13} /> {isMobile ? 'Apply' : 'Apply Edit Now'}
+                      </button>
+                    )}
+
+                    {/* Quick approve button inline for timesheet rows — manager only */}
+                    {isManager && req._kind === 'timesheet' && req.status === 'pending' && !isApplying && !isOpen && (
+                      <button
+                        onClick={e => { e.stopPropagation(); handleApprove(req.id, req._kind, req) }}
+                        disabled={!!actionLoading}
+                        style={{ display:'flex', alignItems:'center', gap:5, background:'rgba(74,222,128,0.12)', border:'1px solid rgba(74,222,128,0.4)', borderRadius:'var(--r-md)', padding:'7px 14px', cursor:'pointer', color:'var(--success)', fontSize:'12px', fontWeight:600, flexShrink:0, transition:'all var(--t-fast)', whiteSpace:'nowrap', opacity:actionLoading?0.6:1 }}
+                        onMouseEnter={e => e.currentTarget.style.background='rgba(74,222,128,0.22)'}
+                        onMouseLeave={e => e.currentTarget.style.background='rgba(74,222,128,0.12)'}
+                      >
+                        <CheckCircle size={13} />
+                        {actionLoading === req._uid + '_approve' ? 'Approving…' : 'Approve'}
                       </button>
                     )}
 
@@ -392,25 +512,60 @@ export default function ApprovalsPage() {
                         </div>
                       )}
 
-                      {isAdmin && req.status === 'pending' && (
+                      {/* Timesheet detail view */}
+                      {req._kind === 'timesheet' && (
+                        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))', gap:10 }}>
+                          {[
+                            { label:'Resource', value: req.resource_name },
+                            { label:'Phase', value: req.timeline_name },
+                            { label:'Date', value: req.date },
+                            { label:'Hours', value: `${req.hours}h` },
+                          ].map(({ label, value }) => (
+                            <div key={label} style={{ padding:'10px 14px', background:'var(--bg-1)', border:'1px solid var(--border)', borderRadius:'var(--r-md)' }}>
+                              <div style={{ fontSize:'10px', fontWeight:700, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:4 }}>{label}</div>
+                              <div style={{ fontSize:'13px', fontWeight:600, color:'var(--text-0)' }}>{value || '—'}</div>
+                            </div>
+                          ))}
+                          {req.description && (
+                            <div style={{ gridColumn:'1 / -1', padding:'10px 14px', background:'var(--bg-1)', border:'1px solid var(--border)', borderRadius:'var(--r-md)' }}>
+                              <div style={{ fontSize:'10px', fontWeight:700, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:4 }}>Description</div>
+                              <div style={{ fontSize:'13px', color:'var(--text-1)' }}>{req.description}</div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Approve/Reject buttons */}
+                      {(isAdmin && req._kind !== 'timesheet' || isManager && req._kind === 'timesheet') && req.status === 'pending' && (
                         <>
-                          <div>
-                            <div style={{ fontSize:'11px', fontWeight:700, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>Note to Manager <span style={{ fontWeight:400 }}>(optional)</span></div>
-                            <textarea value={adminNote[req.id] || ''} onChange={e => setAdminNote(n => ({ ...n, [req.id]: e.target.value }))} placeholder="Explain your decision…" rows={2}
-                              style={{ width:'100%', boxSizing:'border-box', background:'var(--bg-1)', border:'1px solid var(--border)', borderRadius:'var(--r-md)', color:'var(--text-0)', fontSize:'13px', padding:'10px 12px', outline:'none', resize:'vertical', fontFamily:'inherit' }}
-                              onFocus={e => e.target.style.borderColor='var(--accent)'} onBlur={e => e.target.style.borderColor='var(--border)'}
-                            />
-                          </div>
-                          {/* FIX: Buttons stack vertically on mobile to avoid overflow */}
+                          {req._kind !== 'timesheet' && (
+                            <div>
+                              <div style={{ fontSize:'11px', fontWeight:700, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>Note to Manager <span style={{ fontWeight:400 }}>(optional)</span></div>
+                              <textarea value={adminNote[`${req._kind}-${req.id}`] || ''} onChange={e => setAdminNote(n => ({ ...n, [`${req._kind}-${req.id}`]: e.target.value }))} placeholder="Explain your decision…" rows={2}
+                                style={{ width:'100%', boxSizing:'border-box', background:'var(--bg-1)', border:'1px solid var(--border)', borderRadius:'var(--r-md)', color:'var(--text-0)', fontSize:'13px', padding:'10px 12px', outline:'none', resize:'vertical', fontFamily:'inherit' }}
+                                onFocus={e => e.target.style.borderColor='var(--accent)'} onBlur={e => e.target.style.borderColor='var(--border)'}
+                              />
+                            </div>
+                          )}
                           <div style={{ display:'flex', gap:10, justifyContent:'flex-end', flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
-                            <button onClick={() => handleReject(req.id, req._kind)} disabled={!!actionLoading}
-                              style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(248,113,113,0.1)', border:'1px solid rgba(248,113,113,0.4)', borderRadius:'var(--r-md)', padding:'9px 20px', cursor:'pointer', color:'var(--danger)', fontSize:'13px', fontWeight:600, opacity:actionLoading?0.6:1, transition:'all var(--t-fast)', flex: isMobile ? '1 1 auto' : 'none', justifyContent:'center' }}>
-                              <XCircle size={14}/> {actionLoading === req.id+'_reject' ? 'Rejecting…' : 'Reject'}
-                            </button>
-                            <button onClick={() => handleApprove(req.id, req._kind)} disabled={!!actionLoading}
-                              style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(74,222,128,0.12)', border:'1px solid rgba(74,222,128,0.4)', borderRadius:'var(--r-md)', padding:'9px 20px', cursor:'pointer', color:'var(--success)', fontSize:'13px', fontWeight:600, opacity:actionLoading?0.6:1, transition:'all var(--t-fast)', flex: isMobile ? '1 1 auto' : 'none', justifyContent:'center' }}>
-                              <CheckCircle size={14}/> {actionLoading === req.id+'_approve' ? 'Approving…' : 'Approve'}
-                            </button>
+                            {req._kind === 'timesheet' && (
+                              <button onClick={() => handleApprove(req.id, req._kind, req)} disabled={!!actionLoading}
+                                style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(74,222,128,0.12)', border:'1px solid rgba(74,222,128,0.4)', borderRadius:'var(--r-md)', padding:'9px 20px', cursor:'pointer', color:'var(--success)', fontSize:'13px', fontWeight:600, opacity:actionLoading?0.6:1, transition:'all var(--t-fast)', flex: isMobile ? '1 1 auto' : 'none', justifyContent:'center' }}>
+                                <CheckCircle size={14}/> {actionLoading === req._uid + '_approve' ? 'Approving…' : 'Approve Entry'}
+                              </button>
+                            )}
+                            {isAdmin && req._kind !== 'timesheet' && (
+                              <>
+                                <button onClick={() => handleReject(req.id, req._kind)} disabled={!!actionLoading}
+                                  style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(248,113,113,0.1)', border:'1px solid rgba(248,113,113,0.4)', borderRadius:'var(--r-md)', padding:'9px 20px', cursor:'pointer', color:'var(--danger)', fontSize:'13px', fontWeight:600, opacity:actionLoading?0.6:1, transition:'all var(--t-fast)', flex: isMobile ? '1 1 auto' : 'none', justifyContent:'center' }}>
+                                  <XCircle size={14}/> {actionLoading === `${req._kind}-${req.id}_reject` ? 'Rejecting…' : 'Reject'}
+                                </button>
+                                <button onClick={() => handleApprove(req.id, req._kind, req)} disabled={!!actionLoading}
+                                  style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(74,222,128,0.12)', border:'1px solid rgba(74,222,128,0.4)', borderRadius:'var(--r-md)', padding:'9px 20px', cursor:'pointer', color:'var(--success)', fontSize:'13px', fontWeight:600, opacity:actionLoading?0.6:1, transition:'all var(--t-fast)', flex: isMobile ? '1 1 auto' : 'none', justifyContent:'center' }}>
+                                  <CheckCircle size={14}/> {actionLoading === req._uid + '_approve' ? 'Approving…' : 'Approve'}
+                                </button>
+                              </>
+                            )}
                           </div>
                         </>
                       )}
@@ -428,10 +583,9 @@ export default function ApprovalsPage() {
           position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
           background: 'rgba(74,222,128,0.12)', border: '1px solid rgba(74,222,128,0.4)',
           borderRadius: 'var(--r-md)', padding: '12px 20px',
-          color: 'var(--success)', fontSize: '13px', fontWeight: 600,
+          color: 'var(--success)', fontSize: '15px', fontWeight: 600,
           display: 'flex', alignItems: 'center', gap: 8,
           boxShadow: '0 4px 24px rgba(0,0,0,0.18)',
-          animation: 'fadeIn 0.2s ease',
         }}>
           <CheckCircle size={16} /> {successMsg}
         </div>

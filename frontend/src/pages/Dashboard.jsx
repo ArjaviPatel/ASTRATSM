@@ -1,422 +1,658 @@
-import React from 'react'
-import { useQueries } from '@tanstack/react-query'
+import React, { useCallback } from 'react'
+import { useQueries, useQueryClient } from '@tanstack/react-query'
 import {
   Activity, AlertTriangle, Bell, BriefcaseBusiness, CheckCircle2, Clock3,
-  FolderKanban, Gauge, ShieldCheck, Users,
+  FolderKanban, Gauge, RefreshCw, ShieldCheck, TrendingUp, Users, Zap,
 } from 'lucide-react'
 import {
-  Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend,
+  Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
-import { approvalsApi, authApi, clientsApi, notificationsApi, projectsApi, resourcesApi, timelinesApi } from '@/api/index.js'
+import {
+  approvalsApi, authApi, clientsApi, notificationsApi,
+  projectsApi, resourcesApi, timelinesApi,
+} from '@/api/index.js'
 import { Badge, Card, ProgressBar, StatCard } from '@/components/ui/index.jsx'
 import { useAuthStore } from '@/stores/authStore.js'
 
-const PIE_COLORS = ['#237227', '#3f7f58', '#6d8fa0', '#7f9498', '#d97706']
+// ── Constants ────────────────────────────────────────────────────────
+const PIE_COLORS = ['#237227', '#3f9f5f', '#6d8fa0', '#d97706', '#ef4444']
 const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const STATUS_LABELS = {
-  planning: 'Planning',
-  in_progress: 'In Progress',
-  review: 'Review',
-  on_hold: 'On Hold',
-  completed: 'Completed',
+  planning: 'Planning', in_progress: 'In Progress', review: 'Review',
+  on_hold: 'On Hold', completed: 'Completed',
+}
+const STATUS_COLORS = {
+  planning: '#6d8fa0', in_progress: '#237227', review: '#d97706',
+  on_hold: '#ef4444', completed: '#3f9f5f',
 }
 
-const safeList = (response) => response?.data?.results || response?.data || []
-const clamp = (value, min, max) => Math.max(min, Math.min(max, value))
-const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0)
-const sumHours = (entries) => entries.reduce((sum, item) => sum + Number(item.hours || 0), 0)
+// Realtime refresh intervals
+const REALTIME_MS   = 30_000   // 30s for live panels
+const SLOW_MS       = 120_000  // 2min for heavy queries
+
+// ── Helpers ──────────────────────────────────────────────────────────
+const safeList = (res) => res?.data?.results || res?.data || []
+const clamp    = (v, min, max) => Math.max(min, Math.min(max, v))
+const pct      = (a, b) => (b ? Math.round((a / b) * 100) : 0)
+const sumHours = (arr) => arr.reduce((s, e) => s + Number(e.hours || 0), 0)
+const fmt      = (v) => `${Number(v || 0).toFixed(0)}h`
+const fmtDecimal = (v) => `${Number(v || 0).toFixed(1)}h`
+
 const queryList = (fn) => async () => {
-  try {
-    return safeList(await fn())
-  } catch {
-    return []
-  }
-}
-
-function hours(value) {
-  return `${Number(value || 0).toFixed(0)}h`
+  try { return safeList(await fn()) } catch { return [] }
 }
 
 function workingDaysBetween(startDate, endDate) {
   if (!startDate || !endDate) return 0
-  const start = new Date(startDate)
-  const end = new Date(endDate)
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) return 0
-
-  let count = 0
-  const cursor = new Date(start)
-  while (cursor <= end) {
-    const day = cursor.getDay()
-    if (day !== 0 && day !== 6) count += 1
-    cursor.setDate(cursor.getDate() + 1)
+  const s = new Date(startDate), e = new Date(endDate)
+  if (isNaN(s) || isNaN(e) || s > e) return 0
+  let count = 0, cur = new Date(s)
+  while (cur <= e) {
+    const d = cur.getDay()
+    if (d !== 0 && d !== 6) count++
+    cur.setDate(cur.getDate() + 1)
   }
   return count
 }
 
-function getProjectPlannedHours(project) {
-  const workingDays = workingDaysBetween(project.start_date, project.end_date)
-  const resourceCount = Math.max(Number(project.resource_count || 0), 1)
-  const formulaHours = workingDays * 8 * resourceCount
-  return formulaHours || Number(project.hours || project.estimated_hours || 0)
+function getPlannedHours(project) {
+  const days = workingDaysBetween(project.start_date, project.end_date)
+  const res  = Math.max(Number(project.resource_count || 0), 1)
+  return days * 8 * res || Number(project.hours || project.estimated_hours || 0)
 }
 
-function weekdayIndex(dateValue) {
-  const date = new Date(dateValue)
-  if (Number.isNaN(date.getTime())) return null
-  return (date.getDay() + 6) % 7
+function weekdayIdx(dateVal) {
+  const d = new Date(dateVal)
+  return isNaN(d.getTime()) ? null : (d.getDay() + 6) % 7
 }
 
-function buildWeeklySeries(timeEntries, activeProjects) {
-  const base = WEEKDAY_LABELS.map((label) => ({ label, submitted: 0, approved: 0, pending: 0, target: 0 }))
-  const submittedHours = sumHours(timeEntries)
-  const baseTarget = Math.max(submittedHours, activeProjects.length * 8) / 5
+// ── Chart builders ───────────────────────────────────────────────────
+function buildWeeklySeries(entries, activeProjects) {
+  const base = WEEKDAY_LABELS.map(label => ({ label, approved: 0, pending: 0, target: 0 }))
+  const submitted = sumHours(entries)
+  const perDay    = Math.max(submitted, activeProjects.length * 8) / 5
+  base.forEach((item, i) => { item.target = i < 5 ? +perDay.toFixed(1) : 0 })
 
-  base.forEach((item, index) => {
-    item.target = Number(index < 5 ? baseTarget.toFixed(1) : 0)
+  entries.forEach(e => {
+    const i = weekdayIdx(e.date)
+    if (i == null) return
+    const h = Number(e.hours || 0)
+    if (e.approved) base[i].approved += h
+    else base[i].pending += h
   })
 
-  timeEntries.forEach((entry) => {
-    const index = weekdayIndex(entry.date)
-    if (index == null) return
-    const hoursValue = Number(entry.hours || 0)
-    base[index].submitted += hoursValue
-    if (entry.approved) {
-      base[index].approved += hoursValue
-    } else {
-      base[index].pending += hoursValue
-    }
-  })
-
-  return base.map((item) => ({
+  return base.map(item => ({
     ...item,
-    submitted: Number(item.submitted.toFixed(1)),
-    approved: Number(item.approved.toFixed(1)),
-    pending: Number(item.pending.toFixed(1)),
+    approved: +item.approved.toFixed(1),
+    pending:  +item.pending.toFixed(1),
   }))
 }
 
-function buildProjectStatusMix(projects) {
-  const counts = {
-    planning: 0,
-    in_progress: 0,
-    review: 0,
-    on_hold: 0,
-    completed: 0,
-  }
-  projects.forEach((project) => {
-    const key = project.status || 'planning'
-    if (Object.prototype.hasOwnProperty.call(counts, key)) {
-      counts[key] += 1
-    }
+function buildStatusMix(projects) {
+  const counts = { planning: 0, in_progress: 0, review: 0, on_hold: 0, completed: 0 }
+  projects.forEach(p => {
+    const k = p.status || 'planning'
+    if (k in counts) counts[k]++
   })
   return Object.entries(counts)
-    .map(([key, value]) => ({ name: STATUS_LABELS[key], value }))
-    .filter((item) => item.value > 0)
+    .map(([k, v]) => ({ name: STATUS_LABELS[k], value: v, fill: STATUS_COLORS[k] }))
+    .filter(x => x.value > 0)
 }
 
 function buildCapacityMix(resources) {
-  const overloaded = resources.filter((item) => Number(item.availability || 0) <= 20).length
-  const allocated = resources.filter((item) => Number(item.active_project_count || 0) > 0 && Number(item.availability || 0) > 20).length
-  const bench = resources.filter((item) => Number(item.active_project_count || 0) === 0).length
   return [
-    { name: 'Overloaded', value: overloaded, fill: '#ef4444' },
-    { name: 'Allocated', value: allocated, fill: '#237227' },
-    { name: 'Bench', value: bench, fill: '#6d8fa0' },
-  ].filter((item) => item.value > 0)
+    { name: 'Overloaded (≤20%)', value: resources.filter(r => Number(r.availability || 0) <= 20).length, fill: '#ef4444' },
+    { name: 'Allocated', value: resources.filter(r => Number(r.active_project_count || 0) > 0 && Number(r.availability || 0) > 20).length, fill: '#237227' },
+    { name: 'On Bench', value: resources.filter(r => Number(r.active_project_count || 0) === 0).length, fill: '#6d8fa0' },
+  ].filter(x => x.value > 0)
 }
 
+function buildHoursTrend(entries) {
+  // Group last 14 days of entries by date for trend line
+  const map = {}
+  const now = Date.now()
+  entries.forEach(e => {
+    const d = new Date(e.date)
+    if (isNaN(d) || now - d.getTime() > 14 * 86400_000) return
+    const key = e.date
+    if (!map[key]) map[key] = { date: key, approved: 0, pending: 0 }
+    if (e.approved) map[key].approved += Number(e.hours || 0)
+    else map[key].pending += Number(e.hours || 0)
+  })
+  return Object.values(map)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map(d => ({ ...d, date: d.date.slice(5), approved: +d.approved.toFixed(1), pending: +d.pending.toFixed(1) }))
+}
+
+// ── Role copy ────────────────────────────────────────────────────────
 function getRoleCopy(role, name) {
-  const firstName = name?.split(' ')[0] || 'Team'
-  const map = {
-    admin: {
-      title: `Executive control for ${firstName}`,
-      text: 'Monitor planned effort, team utilization, overdue work, and approval queues across the workspace.',
-    },
-    manager: {
-      title: `Delivery view for ${firstName}`,
-      text: 'Track your portfolio, assigned team hours, approval backlog, and delivery pressure from one place.',
-    },
-    resource: {
-      title: `Execution board for ${firstName}`,
-      text: 'Review assigned effort, logged hours, pending approvals, and project momentum for the current cycle.',
-    },
-    client: {
-      title: `Project visibility for ${firstName}`,
-      text: 'Follow active work, delivery status, progress confidence, and recent activity on your projects.',
-    },
-  }
-  return map[role] || map.resource
+  const first = name?.split(' ')[0] || 'Team'
+  return ({
+    admin:    { title: `Executive overview`, text: `Full workspace visibility — approvals, utilization, delivery health, and team capacity.` },
+    manager:  { title: `Delivery hub for ${first}`, text: `Your portfolio health, team worklog, and pending timesheet approvals in one place.` },
+    resource: { title: `My work board`, text: `Your logged hours, project assignments, approval status, and upcoming deliveries.` },
+    client:   { title: `Project visibility`, text: `Live progress, delivery health, and recent activity across your active projects.` },
+  })[role] || { title: 'Dashboard', text: '' }
 }
 
+// ── Skeleton ─────────────────────────────────────────────────────────
 function DashboardSkeleton() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-6)' }}>
-      <div className="skeleton" style={{ height: 220, borderRadius: 'var(--r-xl)' }} />
+      <div className="skeleton" style={{ height: 200, borderRadius: 'var(--r-xl)' }} />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 'var(--sp-4)' }}>
-        {[1, 2, 3, 4].map((item) => <div key={item} className="skeleton" style={{ height: 150 }} />)}
+        {[1, 2, 3, 4].map(i => <div key={i} className="skeleton" style={{ height: 140 }} />)}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 'var(--sp-4)' }}>
-        <div className="skeleton" style={{ height: 340 }} />
-        <div className="skeleton" style={{ height: 340 }} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 'var(--sp-4)' }}>
+        <div className="skeleton" style={{ height: 320 }} />
+        <div className="skeleton" style={{ height: 320 }} />
+        <div className="skeleton" style={{ height: 320 }} />
       </div>
     </div>
   )
 }
 
-function PanelTitle({ title, sub, badge }) {
+// ── Sub-components ───────────────────────────────────────────────────
+function PanelTitle({ title, sub, badge, right }) {
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--sp-3)', marginBottom: 'var(--sp-4)' }}>
       <div>
-        <h3 style={{ fontSize: '1rem', fontWeight: 800 }}>{title}</h3>
-        {sub && <p style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: 4 }}>{sub}</p>}
+        <h3 style={{ fontSize: '0.95rem', fontWeight: 800, letterSpacing: '-0.01em' }}>{title}</h3>
+        {sub && <p style={{ fontSize: '13px', color: 'var(--text-3)', marginTop: 3 }}>{sub}</p>}
       </div>
-      {badge}
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>{badge}{right}</div>
     </div>
   )
 }
 
-function InsightRow({ label, value, hint, tone = 'var(--accent)' }) {
+function InsightRow({ label, value, hint, tone = 'var(--accent)', onClick }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--sp-3)', padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
+    <div
+      onClick={onClick}
+      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--sp-3)', padding: '11px 0', borderBottom: '1px solid var(--border)', cursor: onClick ? 'pointer' : 'default' }}
+    >
       <div>
-        <div style={{ fontSize: '13px', fontWeight: 700 }}>{label}</div>
-        <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: 3 }}>{hint}</div>
+        <div style={{ fontSize: '15px', fontWeight: 600 }}>{label}</div>
+        {hint && <div style={{ fontSize: '13px', color: 'var(--text-3)', marginTop: 2 }}>{hint}</div>}
       </div>
-      <div style={{ fontSize: '13px', fontWeight: 800, color: tone }}>{value}</div>
+      <div style={{ fontSize: '14px', fontWeight: 800, color: tone, flexShrink: 0 }}>{value}</div>
     </div>
   )
 }
 
-export default function DashboardPage() {
-  const user = useAuthStore((state) => state.user)
-  const role = user?.role || 'resource'
-  const userReady = !!user
+function LiveDot({ color = 'var(--success)' }) {
+  return (
+    <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: color, animation: 'badge-pulse 2s ease-in-out infinite', flexShrink: 0 }} />
+  )
+}
 
-  const dashboardQueryOptions = { staleTime: 60_000, refetchOnWindowFocus: false, refetchOnReconnect: false }
+function ProjectRow({ project }) {
+  const progress = Number(project.progress || 0)
+  const isDelayed = project.is_delayed || project.status === 'on_hold' || progress < 30
+  return (
+    <div style={{ padding: '10px 14px', borderRadius: 'var(--r-md)', background: 'var(--bg-2)', border: `1px solid ${isDelayed ? 'rgba(239,68,68,0.25)' : 'var(--border)'}`, display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-0)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</span>
+        <span style={{ fontSize: '12px', fontWeight: 700, padding: '2px 8px', borderRadius: 'var(--r-full)', background: isDelayed ? 'rgba(239,68,68,0.12)' : 'rgba(35,114,39,0.12)', color: isDelayed ? 'var(--danger)' : 'var(--success)', flexShrink: 0 }}>
+          {project.status?.replace('_', ' ') || 'planning'}
+        </span>
+      </div>
+      <ProgressBar value={progress} color={isDelayed ? 'var(--danger)' : 'var(--accent)'} showLabel />
+    </div>
+  )
+}
+
+function TimesheetRow({ entry }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '9px 14px', borderRadius: 'var(--r-md)', background: 'var(--bg-2)', border: '1px solid var(--border)' }}>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-0)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {entry.resource_name || entry.resource?.user?.name || 'Resource'}
+        </div>
+        <div style={{ fontSize: '13px', color: 'var(--text-3)', marginTop: 2 }}>
+          {entry.project_name || entry.project?.name || '—'} · {entry.date}
+        </div>
+      </div>
+      <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--warning)', flexShrink: 0 }}>{entry.hours}h</div>
+    </div>
+  )
+}
+
+// ── Custom tooltip ───────────────────────────────────────────────────
+const ChartTooltipStyle = { borderRadius: 10, border: '1px solid rgba(191,198,196,0.14)', background: '#1a2c43', color: '#f6faf8', fontSize: 12 }
+
+// ── Main Component ───────────────────────────────────────────────────
+export default function DashboardPage() {
+  const user    = useAuthStore(s => s.user)
+  const role    = user?.role || 'resource'
+  const userReady = !!user
+  const qc      = useQueryClient()
+
+  const refresh = useCallback(() => {
+    qc.invalidateQueries({ queryKey: ['dashboard'] })
+  }, [qc])
 
   const results = useQueries({
     queries: [
-      { queryKey: ['dashboard-projects', role], queryFn: queryList(() => projectsApi.list({ page_size: 500 })), enabled: userReady, ...dashboardQueryOptions },
-      { queryKey: ['dashboard-timelines', role], queryFn: queryList(() => timelinesApi.list({ page_size: 500 })), enabled: userReady, ...dashboardQueryOptions },
-      { queryKey: ['dashboard-resources', role], queryFn: queryList(() => resourcesApi.list({ page_size: 500 })), enabled: userReady && role !== 'client', ...dashboardQueryOptions },
-      { queryKey: ['dashboard-clients', role], queryFn: queryList(() => clientsApi.list({ page_size: 500 })), enabled: userReady && role !== 'resource', ...dashboardQueryOptions },
-      { queryKey: ['dashboard-notifications', role], queryFn: queryList(() => notificationsApi.list()), enabled: userReady, ...dashboardQueryOptions },
-      { queryKey: ['dashboard-approvals', role], queryFn: queryList(() => approvalsApi.list({ page_size: 50, status: 'pending' })), enabled: userReady && (role === 'admin' || role === 'manager'), ...dashboardQueryOptions },
-      { queryKey: ['dashboard-users', role], queryFn: queryList(() => authApi.users({ page_size: 500 })), enabled: userReady && role === 'admin', ...dashboardQueryOptions },
-      { queryKey: ['dashboard-time-entries', role], queryFn: queryList(() => resourcesApi.timeEntries({ page_size: 500 })), enabled: userReady && role !== 'client', ...dashboardQueryOptions },
+      // [0] projects — slow, large
+      {
+        queryKey: ['dashboard', 'projects', role],
+        queryFn:  queryList(() => projectsApi.list({ page_size: 500 })),
+        enabled:  userReady,
+        staleTime: SLOW_MS, refetchInterval: SLOW_MS,
+      },
+      // [1] timelines — slow
+      {
+        queryKey: ['dashboard', 'timelines', role],
+        queryFn:  queryList(() => timelinesApi.list({ page_size: 500 })),
+        enabled:  userReady,
+        staleTime: SLOW_MS, refetchInterval: SLOW_MS,
+      },
+      // [2] resources — slow
+      {
+        queryKey: ['dashboard', 'resources', role],
+        queryFn:  queryList(() => resourcesApi.list({ page_size: 500 })),
+        enabled:  userReady && role !== 'client',
+        staleTime: SLOW_MS, refetchInterval: SLOW_MS,
+      },
+      // [3] clients — slow
+      {
+        queryKey: ['dashboard', 'clients', role],
+        queryFn:  queryList(() => clientsApi.list({ page_size: 500 })),
+        enabled:  userReady && role !== 'resource',
+        staleTime: SLOW_MS, refetchInterval: SLOW_MS,
+      },
+      // [4] notifications — realtime
+      {
+        queryKey: ['dashboard', 'notifications', role],
+        queryFn:  queryList(() => notificationsApi.list()),
+        enabled:  userReady,
+        staleTime: REALTIME_MS, refetchInterval: REALTIME_MS,
+      },
+      // [5] pending project approvals — realtime
+      {
+        queryKey: ['dashboard', 'approvals', role],
+        queryFn:  queryList(() => approvalsApi.list({ page_size: 100, status: 'pending' })),
+        enabled:  userReady && (role === 'admin' || role === 'manager'),
+        staleTime: REALTIME_MS, refetchInterval: REALTIME_MS,
+      },
+      // [6] users (admin only) — slow
+      {
+        queryKey: ['dashboard', 'users', role],
+        queryFn:  queryList(() => authApi.users({ page_size: 500 })),
+        enabled:  userReady && role === 'admin',
+        staleTime: SLOW_MS, refetchInterval: SLOW_MS,
+      },
+      // [7] time entries — realtime (this is the key panel data)
+      {
+        queryKey: ['dashboard', 'time-entries', role],
+        queryFn:  queryList(() => resourcesApi.timeEntries({ page_size: 500 })),
+        enabled:  userReady && role !== 'client',
+        staleTime: REALTIME_MS, refetchInterval: REALTIME_MS,
+      },
+      // [8] pending timesheet entries (for managers) — realtime
+      {
+        queryKey: ['dashboard', 'pending-timesheets', role],
+        queryFn:  queryList(() => resourcesApi.timeEntries({ approved: false, page_size: 100 })),
+        enabled:  userReady && (role === 'admin' || role === 'manager'),
+        staleTime: REALTIME_MS, refetchInterval: REALTIME_MS,
+      },
     ],
   })
 
-  const isLoading = !userReady || results.some((item) => item.isLoading)
+  const isLoading = !userReady || results.some(r => r.isLoading)
   if (isLoading) return <DashboardSkeleton />
 
   const [
-    projectsResult,
-    timelinesResult,
-    resourcesResult,
-    clientsResult,
-    notificationsResult,
-    approvalsResult,
-    usersResult,
-    timeEntriesResult,
+    { data: projects = [] },
+    { data: timelines = [] },
+    { data: resources = [] },
+    { data: clients = [] },
+    { data: notifications = [] },
+    { data: approvals = [] },
+    { data: users = [] },
+    { data: timeEntries = [] },
+    { data: pendingTimesheets = [] },
   ] = results
 
-  const projects = projectsResult.data || []
-  const timelines = timelinesResult.data || []
-  const resources = resourcesResult.data || []
-  const clients = clientsResult.data || []
-  const notifications = notificationsResult.data || []
-  const approvals = approvalsResult.data || []
-  const users = usersResult.data || []
-  const timeEntries = timeEntriesResult.data || []
+  // ── Derived metrics ──────────────────────────────────────────────
+  const activeProjects    = projects.filter(p => p.status !== 'completed')
+  const completedProjects = projects.filter(p => p.status === 'completed' || Number(p.progress || 0) >= 100)
+  const delayedProjects   = projects.filter(p => p.is_delayed || p.status === 'on_hold' || (p.status !== 'completed' && Number(p.progress || 0) < 30))
+  const overdueTimelines  = timelines.filter(t => t.is_delayed || (t.status !== 'completed' && Number(t.progress || 0) < 100))
+  const activeResources   = resources.filter(r => Number(r.active_project_count || 0) > 0)
 
-  const plannedHours = projects.reduce((sum, item) => sum + getProjectPlannedHours(item), 0)
-  const approvedEntries = timeEntries.filter((item) => item.approved)
-  const pendingEntries = timeEntries.filter((item) => !item.approved)
-  const consumedHours = sumHours(timeEntries)
-  const approvedHours = sumHours(approvedEntries)
-  const pendingHours = sumHours(pendingEntries)
-  const myEntries = timeEntries.filter((item) => item.resource_user === user?.id || item.user === user?.id || item.resource?.user === user?.id)
-  const myHours = sumHours(myEntries)
-  const myApprovedHours = sumHours(myEntries.filter((item) => item.approved))
-  const activeProjects = projects.filter((item) => item.status !== 'completed')
-  const delayedProjects = projects.filter((item) => item.is_delayed || item.status === 'on_hold' || Number(item.progress || 0) < 40)
-  const overdueTimelines = timelines.filter((item) => item.is_delayed || (item.status !== 'completed' && Number(item.progress || 0) < 100))
-  const completedProjects = projects.filter((item) => item.status === 'completed' || Number(item.progress || 0) >= 100)
-  const unreadCount = notifications.filter((item) => !item.is_read).length
-  const activeResources = resources.filter((item) => Number(item.active_project_count || 0) > 0)
-  const visibleHours = role === 'admin' ? approvedHours : role === 'resource' ? myHours : consumedHours
-  const utilization = pct(visibleHours, plannedHours || 1)
-  const approvalRate = pct(approvedHours, consumedHours || 1)
-  const deliveryScore = clamp(100 - delayedProjects.length * 12 + completedProjects.length * 5, 28, 98)
-  const weeklySeries = buildWeeklySeries(timeEntries, activeProjects)
-  const healthMix = buildProjectStatusMix(projects)
-  const capacityMix = buildCapacityMix(resources)
+  const approvedEntries = timeEntries.filter(e => e.approved)
+  const pendingEntries  = timeEntries.filter(e => !e.approved)
+  const consumedHours   = sumHours(timeEntries)
+  const approvedHours   = sumHours(approvedEntries)
+  const pendingHours    = sumHours(pendingEntries)
+
+  // For resource: filter to own entries
+  const myEntries = timeEntries.filter(e =>
+    e.resource_user === user?.id ||
+    e.user === user?.id ||
+    e.resource?.user === user?.id ||
+    e.resource?.user_id === user?.id
+  )
+  const myHours         = sumHours(myEntries)
+  const myApprovedHours = sumHours(myEntries.filter(e => e.approved))
+  const myPendingHours  = myHours - myApprovedHours
+
+  const plannedHours    = projects.reduce((s, p) => s + getPlannedHours(p), 0)
+  const visibleHours    = role === 'resource' ? myHours : role === 'admin' ? approvedHours : consumedHours
+  const utilization     = pct(visibleHours, Math.max(plannedHours, 1))
+  const approvalRate    = pct(approvedHours, Math.max(consumedHours, 1))
+  const deliveryScore   = clamp(100 - delayedProjects.length * 10 + completedProjects.length * 4, 20, 98)
+  const unreadCount     = notifications.filter(n => !n.is_read).length
+
+  // Charts
+  const weeklySeries   = buildWeeklySeries(role === 'resource' ? myEntries : timeEntries, activeProjects)
+  const statusMix      = buildStatusMix(projects)
+  const capacityMix    = buildCapacityMix(resources)
+  const hoursTrend     = buildHoursTrend(role === 'resource' ? myEntries : timeEntries)
+
   const roleCopy = getRoleCopy(role, user?.name)
 
-  const statsByRole = {
+  // ── Stat cards by role ──────────────────────────────────────────
+  const statCards = {
     admin: [
-      { label: 'Planned Hours', value: hours(plannedHours), sub: `${projects.length} total projects`, icon: Clock3, accent: 'var(--accent)' },
-      { label: 'Approved Hours', value: hours(approvedHours), sub: `${approvalRate}% of submitted time approved`, icon: ShieldCheck, accent: 'var(--info)' },
-      { label: 'Delayed Work', value: delayedProjects.length, sub: `${overdueTimelines.length} timelines need action`, icon: AlertTriangle, accent: 'var(--danger)' },
+      { label: 'Planned Hours', value: fmt(plannedHours), sub: `across ${projects.length} projects`, icon: Clock3, accent: 'var(--accent)' },
+      { label: 'Approved Hours', value: fmt(approvedHours), sub: `${approvalRate}% approval rate`, icon: ShieldCheck, accent: 'var(--info)' },
+      { label: 'Pending Timesheets', value: pendingTimesheets.length, sub: `${fmtDecimal(pendingHours)} hours awaiting review`, icon: CheckCircle2, accent: pendingTimesheets.length > 0 ? 'var(--warning)' : 'var(--success)' },
       { label: 'Workspace Users', value: users.length || resources.length, sub: `${activeResources.length} currently allocated`, icon: Users, accent: 'var(--success)' },
     ],
     manager: [
-      { label: 'Portfolio Projects', value: activeProjects.length, sub: `${completedProjects.length} completed`, icon: BriefcaseBusiness, accent: 'var(--accent)' },
-      { label: 'Submitted Hours', value: hours(consumedHours), sub: `${hours(pendingHours)} waiting approval`, icon: Clock3, accent: 'var(--info)' },
-      { label: 'Approval Queue', value: approvals.length, sub: `${approvalRate}% timesheet approval rate`, icon: CheckCircle2, accent: 'var(--success)' },
-      { label: 'Delivery Risk', value: delayedProjects.length, sub: `${deliveryScore}% health score`, icon: Gauge, accent: 'var(--danger)' },
+      { label: 'Active Projects', value: activeProjects.length, sub: `${completedProjects.length} completed`, icon: BriefcaseBusiness, accent: 'var(--accent)' },
+      { label: 'Submitted Hours', value: fmt(consumedHours), sub: `${fmt(pendingHours)} awaiting approval`, icon: Clock3, accent: 'var(--info)' },
+      { label: 'Pending Timesheets', value: pendingTimesheets.length, sub: `${fmtDecimal(pendingHours)} to review`, icon: CheckCircle2, accent: pendingTimesheets.length > 0 ? 'var(--warning)' : 'var(--success)' },
+      { label: 'Delivery Risk', value: delayedProjects.length, sub: `${deliveryScore}% health score`, icon: Gauge, accent: delayedProjects.length > 0 ? 'var(--danger)' : 'var(--success)' },
     ],
     resource: [
-      { label: 'Assigned Hours', value: hours(plannedHours), sub: `${activeProjects.length} active assignments`, icon: FolderKanban, accent: 'var(--accent)' },
-      { label: 'Logged Hours', value: hours(myHours || consumedHours), sub: `${hours(myApprovedHours)} approved by manager`, icon: Clock3, accent: 'var(--info)' },
-      { label: 'Unread Updates', value: unreadCount, sub: `${hours(Math.max(myHours - myApprovedHours, 0))} still pending approval`, icon: Bell, accent: 'var(--success)' },
-      { label: 'At-Risk Items', value: delayedProjects.length, sub: 'Delays or low progress projects', icon: AlertTriangle, accent: 'var(--danger)' },
+      { label: 'My Logged Hours', value: fmt(myHours), sub: `${activeProjects.length} active assignments`, icon: FolderKanban, accent: 'var(--accent)' },
+      { label: 'Approved', value: fmt(myApprovedHours), sub: `${pct(myApprovedHours, Math.max(myHours, 1))}% of my hours approved`, icon: ShieldCheck, accent: 'var(--success)' },
+      { label: 'Pending Approval', value: fmt(myPendingHours), sub: `waiting for manager review`, icon: Clock3, accent: myPendingHours > 0 ? 'var(--warning)' : 'var(--text-2)' },
+      { label: 'At-Risk Projects', value: delayedProjects.length, sub: 'delays or low progress', icon: AlertTriangle, accent: delayedProjects.length > 0 ? 'var(--danger)' : 'var(--text-2)' },
     ],
     client: [
-      { label: 'Visible Projects', value: projects.length, sub: `${clients.length} linked client account(s)`, icon: FolderKanban, accent: 'var(--accent)' },
-      { label: 'Delivery Health', value: `${deliveryScore}%`, sub: `${completedProjects.length} completed initiatives`, icon: Gauge, accent: 'var(--success)' },
-      { label: 'Recent Alerts', value: unreadCount, sub: 'Unread updates from delivery team', icon: Bell, accent: 'var(--info)' },
-      { label: 'Delayed Work', value: delayedProjects.length, sub: 'Projects needing attention', icon: AlertTriangle, accent: 'var(--danger)' },
+      { label: 'Visible Projects', value: projects.length, sub: `${clients.length} client account(s)`, icon: FolderKanban, accent: 'var(--accent)' },
+      { label: 'Delivery Score', value: `${deliveryScore}%`, sub: `${completedProjects.length} completed`, icon: Gauge, accent: 'var(--success)' },
+      { label: 'Unread Alerts', value: unreadCount, sub: 'updates from delivery team', icon: Bell, accent: unreadCount > 0 ? 'var(--info)' : 'var(--text-2)' },
+      { label: 'Delayed Work', value: delayedProjects.length, sub: 'projects needing attention', icon: AlertTriangle, accent: delayedProjects.length > 0 ? 'var(--danger)' : 'var(--text-2)' },
     ],
   }
 
-  const queueItems = [
-    { label: 'Approval queue', value: approvals.length, hint: 'Pending changes that need review.', tone: 'var(--accent)' },
-    { label: 'Unread notifications', value: unreadCount, hint: 'Operational updates waiting for attention.', tone: 'var(--info)' },
-    { label: 'Delayed projects', value: delayedProjects.length, hint: 'Projects showing risk or stalled progress.', tone: 'var(--danger)' },
-    { label: 'Utilization', value: `${utilization}%`, hint: 'Planned hours versus visible delivered effort.', tone: 'var(--success)' },
-  ]
+  const isRefetching = results.some(r => r.isFetching)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-6)', maxWidth: 1440, margin: '0 auto' }}>
-      <Card className="animate-rise-in card-hover mobile-center-card" style={{ padding: 'var(--sp-8)', borderRadius: 'var(--r-xl)', background: 'linear-gradient(135deg, rgba(35,114,39,0.16), rgba(19,36,64,0.95) 58%, rgba(59,73,83,0.96))' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 'var(--sp-6)', alignItems: 'stretch' }}>
-          <div className="mobile-center-stack" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
-            <Badge color="var(--accent)">Enterprise Timesheet Workspace</Badge>
-            <div>
-              <h1 style={{ fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.03em' }}>{roleCopy.title}</h1>
-              <p style={{ fontSize: '14px', color: 'var(--text-1)', marginTop: 10, maxWidth: 760 }}>{roleCopy.text}</p>
+
+      {/* ── Hero banner ── */}
+      <Card className="animate-rise-in" style={{ padding: 'var(--sp-6) var(--sp-8)', borderRadius: 'var(--r-xl)', background: 'linear-gradient(135deg, rgba(35,114,39,0.18), rgba(19,36,64,0.96) 55%, rgba(59,73,83,0.97))' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 'var(--sp-6)', alignItems: 'center' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Badge color="var(--accent)">Enterprise Timesheet</Badge>
+              {isRefetching
+                ? <span style={{ fontSize: '13px', color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 4 }}><RefreshCw size={10} style={{ animation: 'spin 1s linear infinite' }} /> updating</span>
+                : <span style={{ fontSize: '13px', color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 4 }}><LiveDot /> live</span>
+              }
             </div>
-            <div className="mobile-center-actions" style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--sp-3)' }}>
-              <Badge color="var(--success)">{activeProjects.length} active projects</Badge>
-              <Badge color="var(--info)">{hours(visibleHours)} visible hours</Badge>
-              <Badge color="var(--danger)">{delayedProjects.length} at risk</Badge>
+            <div>
+              <h1 style={{ fontSize: '1.8rem', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.15 }}>{roleCopy.title}</h1>
+              <p style={{ fontSize: '15px', color: 'var(--text-2)', marginTop: 8, lineHeight: 1.6 }}>{roleCopy.text}</p>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--sp-2)', marginTop: 4 }}>
+              <Badge color="var(--success)">{activeProjects.length} active</Badge>
+              <Badge color="var(--info)">{fmt(visibleHours)} logged</Badge>
+              {delayedProjects.length > 0 && <Badge color="var(--danger)">{delayedProjects.length} at risk</Badge>}
+              {pendingTimesheets.length > 0 && (role === 'admin' || role === 'manager') && (
+                <Badge color="var(--warning)">{pendingTimesheets.length} timesheets pending</Badge>
+              )}
             </div>
           </div>
-          <div style={{ display: 'grid', gap: 'var(--sp-3)', alignContent: 'start' }}>
-            <div style={{ padding: '18px 20px', borderRadius: 'var(--r-lg)', background: 'rgba(0,0,0,0.22)', border: '1px solid rgba(191,198,196,0.12)' }}>
-              <div style={{ fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-2)' }}>Delivery Score</div>
-              <div style={{ fontSize: '2rem', fontWeight: 800, marginTop: 8 }}>{deliveryScore}%</div>
-              <div style={{ marginTop: 12 }}><ProgressBar value={deliveryScore} color="var(--accent)" showLabel /></div>
-            </div>
-            <div style={{ padding: '18px 20px', borderRadius: 'var(--r-lg)', background: 'rgba(0,0,0,0.22)', border: '1px solid rgba(191,198,196,0.12)' }}>
-              <div style={{ fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-2)' }}>{role === 'admin' ? 'Approved Utilization' : 'Resource Utilization'}</div>
-              <div style={{ fontSize: '2rem', fontWeight: 800, marginTop: 8 }}>{utilization}%</div>
-              <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: 6 }}>{hours(visibleHours)} of {hours(plannedHours || visibleHours)}</div>
-            </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--sp-3)' }}>
+            {[
+              { label: 'Delivery Score', value: `${deliveryScore}%`, bar: deliveryScore, color: deliveryScore >= 70 ? 'var(--accent)' : 'var(--warning)' },
+              { label: role === 'resource' ? 'My Approval Rate' : 'Approval Rate', value: `${approvalRate}%`, bar: approvalRate, color: 'var(--info)' },
+              { label: 'Utilization', value: `${utilization}%`, bar: utilization, color: utilization > 90 ? 'var(--danger)' : 'var(--success)' },
+              { label: 'Completed', value: `${pct(completedProjects.length, Math.max(projects.length, 1))}%`, bar: pct(completedProjects.length, Math.max(projects.length, 1)), color: 'var(--success)' },
+            ].map(({ label, value, bar, color }) => (
+              <div key={label} style={{ padding: '14px 16px', borderRadius: 'var(--r-lg)', background: 'rgba(0,0,0,0.22)', border: '1px solid rgba(191,198,196,0.1)' }}>
+                <div style={{ fontSize: '12px', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)' }}>{label}</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 800, marginTop: 6, color }}>{value}</div>
+                <div style={{ marginTop: 8 }}><ProgressBar value={bar} color={color} /></div>
+              </div>
+            ))}
           </div>
         </div>
       </Card>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 'var(--sp-4)' }}>
-        {(statsByRole[role] || statsByRole.resource).map((item, index) => (
-          <div key={item.label} style={{ animationDelay: `${index * 50}ms` }} className="animate-rise-in">
+      {/* ── Stat cards ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 'var(--sp-4)' }}>
+        {(statCards[role] || statCards.resource).map((item, i) => (
+          <div key={item.label} className="animate-rise-in" style={{ animationDelay: `${i * 40}ms` }}>
             <StatCard {...item} />
           </div>
         ))}
       </div>
 
+      {/* ── Charts row 1 ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 'var(--sp-4)', alignItems: 'start' }}>
-        <Card className="card-hover animate-rise-in" style={{ minHeight: 360 }}>
+
+        {/* Weekly worklog bar chart */}
+        <Card className="card-hover animate-rise-in">
           <PanelTitle
-            title="Worklog Flow Through The Week"
-            sub="Real submitted, approved, and pending hours grouped by weekday from your visible entries."
-            badge={<Badge color="var(--info)">Live data</Badge>}
+            title="Worklog — This Week"
+            sub="Approved vs pending hours by weekday"
+            badge={<Badge color="var(--info)"><LiveDot color="var(--info)" /> Live</Badge>}
           />
-          <div style={{ height: 280 }}>
+          <div style={{ height: 260 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={weeklySeries}>
-                <CartesianGrid stroke="rgba(191,198,196,0.08)" vertical={false} />
-                <XAxis dataKey="label" stroke="var(--text-3)" tickLine={false} axisLine={false} />
-                <YAxis stroke="var(--text-3)" tickLine={false} axisLine={false} width={34} />
-                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid rgba(191,198,196,0.14)', background: '#1a2c43', color: '#f6faf8' }} />
-                <Legend />
-                <Bar dataKey="approved" name="Approved" stackId="hours" fill="#237227" radius={[8, 8, 0, 0]} />
-                <Bar dataKey="pending" name="Pending" stackId="hours" fill="#d97706" radius={[8, 8, 0, 0]} />
-                <Area type="monotone" dataKey="target" name="Target" stroke="#6d8fa0" fillOpacity={0} strokeWidth={3} />
+              <BarChart data={weeklySeries} barSize={18}>
+                <CartesianGrid stroke="rgba(191,198,196,0.07)" vertical={false} />
+                <XAxis dataKey="label" stroke="var(--text-3)" tickLine={false} axisLine={false} fontSize={11} />
+                <YAxis stroke="var(--text-3)" tickLine={false} axisLine={false} width={30} fontSize={11} />
+                <Tooltip contentStyle={ChartTooltipStyle} />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Bar dataKey="approved" name="Approved" stackId="h" fill="#237227" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="pending"  name="Pending"  stackId="h" fill="#d97706" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </Card>
 
-        <div style={{ display: 'grid', gap: 'var(--sp-4)' }}>
+        {/* 14-day trend area chart */}
+        {hoursTrend.length > 1 ? (
           <Card className="card-hover animate-rise-in">
-            <PanelTitle title="Project Status Mix" sub="How the visible portfolio is distributed right now." badge={<Badge color="var(--accent)">Portfolio</Badge>} />
-            <div style={{ height: 220 }}>
+            <PanelTitle
+              title="14-Day Hours Trend"
+              sub="Approved and pending hours across the past two weeks"
+              badge={<Badge color="var(--success)"><TrendingUp size={10} /> Trend</Badge>}
+            />
+            <div style={{ height: 260 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={hoursTrend}>
+                  <defs>
+                    <linearGradient id="gradApproved" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="#237227" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#237227" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="gradPending" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="#d97706" stopOpacity={0.25} />
+                      <stop offset="95%" stopColor="#d97706" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="rgba(191,198,196,0.07)" vertical={false} />
+                  <XAxis dataKey="date" stroke="var(--text-3)" tickLine={false} axisLine={false} fontSize={10} />
+                  <YAxis stroke="var(--text-3)" tickLine={false} axisLine={false} width={28} fontSize={10} />
+                  <Tooltip contentStyle={ChartTooltipStyle} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Area type="monotone" dataKey="approved" name="Approved" stroke="#237227" fill="url(#gradApproved)" strokeWidth={2} dot={false} />
+                  <Area type="monotone" dataKey="pending"  name="Pending"  stroke="#d97706" fill="url(#gradPending)"  strokeWidth={2} dot={false} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </Card>
+        ) : (
+          /* Project status pie — shown when no trend data */
+          <Card className="card-hover animate-rise-in">
+            <PanelTitle title="Project Status Mix" sub="Portfolio distribution by current status" badge={<Badge color="var(--accent)">Portfolio</Badge>} />
+            <div style={{ height: 260 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={healthMix} dataKey="value" nameKey="name" innerRadius={58} outerRadius={86} paddingAngle={5}>
-                    {healthMix.map((entry, index) => <Cell key={entry.name} fill={PIE_COLORS[index % PIE_COLORS.length]} />)}
+                  <Pie data={statusMix} dataKey="value" nameKey="name" innerRadius={60} outerRadius={90} paddingAngle={4}>
+                    {statusMix.map(entry => <Cell key={entry.name} fill={entry.fill} />)}
                   </Pie>
-                  <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid rgba(191,198,196,0.14)', background: '#1a2c43', color: '#f6faf8' }} />
+                  <Tooltip contentStyle={ChartTooltipStyle} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
           </Card>
+        )}
 
-          {role !== 'client' && (
-            <Card className="card-hover animate-rise-in">
-              <PanelTitle title="Resource Capacity" sub="A clearer view of overloaded, allocated, and bench capacity across visible resources." badge={<Badge color="var(--success)">Resources</Badge>} />
-              <div style={{ height: 220 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={capacityMix} layout="vertical" margin={{ left: 8, right: 12, top: 4, bottom: 4 }}>
-                    <CartesianGrid stroke="rgba(191,198,196,0.08)" horizontal={false} />
-                    <XAxis type="number" stroke="var(--text-3)" tickLine={false} axisLine={false} allowDecimals={false} />
-                    <YAxis type="category" dataKey="name" stroke="var(--text-3)" tickLine={false} axisLine={false} width={80} />
-                    <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid rgba(191,198,196,0.14)', background: '#1a2c43', color: '#f6faf8' }} />
-                    <Bar dataKey="value" name="Resources" radius={[0, 10, 10, 0]}>
-                      {capacityMix.map((item) => <Cell key={item.name} fill={item.fill} />)}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </Card>
-          )}
-        </div>
+        {/* Project status pie (always show if hoursTrend is available) */}
+        {hoursTrend.length > 1 && (
+          <Card className="card-hover animate-rise-in">
+            <PanelTitle title="Project Status Mix" sub="Portfolio distribution by current status" badge={<Badge color="var(--accent)">Portfolio</Badge>} />
+            <div style={{ height: 260 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={statusMix} dataKey="value" nameKey="name" innerRadius={55} outerRadius={88} paddingAngle={4}>
+                    {statusMix.map(entry => <Cell key={entry.name} fill={entry.fill} />)}
+                  </Pie>
+                  <Tooltip contentStyle={ChartTooltipStyle} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </Card>
+        )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 'var(--sp-4)', alignItems: 'start' }}>
+      {/* ── Charts row 2 ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 'var(--sp-4)', alignItems: 'start' }}>
+
+        {/* Resource capacity — admin/manager only */}
+        {role !== 'client' && role !== 'resource' && (
+          <Card className="card-hover animate-rise-in">
+            <PanelTitle title="Resource Capacity" sub="Overloaded · Allocated · On bench" badge={<Badge color="var(--success)">Team</Badge>} />
+            <div style={{ height: 200 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={capacityMix} layout="vertical" margin={{ left: 8, right: 12 }}>
+                  <CartesianGrid stroke="rgba(191,198,196,0.07)" horizontal={false} />
+                  <XAxis type="number" stroke="var(--text-3)" tickLine={false} axisLine={false} allowDecimals={false} fontSize={10} />
+                  <YAxis type="category" dataKey="name" stroke="var(--text-3)" tickLine={false} axisLine={false} width={100} fontSize={10} />
+                  <Tooltip contentStyle={ChartTooltipStyle} />
+                  <Bar dataKey="value" name="Resources" radius={[0, 8, 8, 0]}>
+                    {capacityMix.map(item => <Cell key={item.name} fill={item.fill} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 12 }}>
+              {[
+                { label: 'Bench', value: resources.filter(r => Number(r.active_project_count || 0) === 0).length, color: '#6d8fa0' },
+                { label: 'Active', value: activeResources.length, color: '#237227' },
+                { label: 'Overloaded', value: resources.filter(r => Number(r.availability || 0) <= 20).length, color: '#ef4444' },
+              ].map(({ label, value, color }) => (
+                <div key={label} style={{ textAlign: 'center', padding: '8px', background: 'var(--bg-2)', borderRadius: 'var(--r-md)', border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: '18px', fontWeight: 800, color }}>{value}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-3)', marginTop: 2 }}>{label}</div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        {/* Operational focus / queue */}
         <Card className="card-hover animate-rise-in">
-          <PanelTitle title="Operational Focus" sub="The most important queues and effort indicators for this cycle." badge={<Badge color="var(--danger)">Priority</Badge>} />
+          <PanelTitle
+            title="Operational Focus"
+            sub="Key queues and effort indicators"
+            badge={<Badge color="var(--danger)"><Zap size={10} /> Priority</Badge>}
+          />
           <div>
-            {queueItems.map((item) => (
-              <InsightRow key={item.label} {...item} />
-            ))}
+            {[
+              role === 'admin' || role === 'manager'
+                ? { label: 'Pending timesheets', value: pendingTimesheets.length, hint: `${fmtDecimal(pendingHours)} hours awaiting approval`, tone: pendingTimesheets.length > 0 ? 'var(--warning)' : 'var(--success)' }
+                : { label: 'My pending hours', value: fmt(myPendingHours), hint: 'Submitted, not yet approved by manager', tone: myPendingHours > 0 ? 'var(--warning)' : 'var(--success)' },
+              { label: 'Unread notifications', value: unreadCount, hint: 'Updates waiting for your attention', tone: unreadCount > 0 ? 'var(--info)' : 'var(--text-2)' },
+              { label: 'Delayed projects', value: delayedProjects.length, hint: 'On hold or low progress (<30%)', tone: delayedProjects.length > 0 ? 'var(--danger)' : 'var(--text-2)' },
+              { label: 'Overdue timelines', value: overdueTimelines.length, hint: 'Phases not yet completed', tone: overdueTimelines.length > 0 ? 'var(--warning)' : 'var(--text-2)' },
+              { label: 'Utilization', value: `${utilization}%`, hint: 'Visible hours vs planned', tone: utilization > 85 ? 'var(--danger)' : 'var(--accent)' },
+            ].map(item => <InsightRow key={item.label} {...item} />)}
           </div>
         </Card>
 
+        {/* Recent notifications */}
         <Card className="card-hover animate-rise-in">
-          <PanelTitle title="Recent Notifications" sub="Unread signals and communication pressure across the workspace." badge={<Badge color="var(--info)">Live</Badge>} />
-          <div style={{ display: 'grid', gap: 'var(--sp-3)' }}>
-            {notifications.slice(0, 5).map((item, index) => (
-              <div key={item.id || index} style={{ padding: '14px 16px', borderRadius: 'var(--r-lg)', background: 'var(--surface-1)', border: '1px solid var(--border)' }} className="animate-fade-in">
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--sp-3)' }}>
-                  <div style={{ fontSize: '13px', fontWeight: 700 }}>{item.title || 'Workspace update'}</div>
-                  {!item.is_read && <span className="badge-pulse" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />}
+          <PanelTitle
+            title="Recent Notifications"
+            sub={`${unreadCount} unread`}
+            badge={<Badge color="var(--info)"><LiveDot color="var(--info)" /> Live</Badge>}
+          />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+            {notifications.slice(0, 6).map((item, i) => (
+              <div key={item.id || i} style={{ padding: '10px 14px', borderRadius: 'var(--r-md)', background: item.is_read ? 'var(--bg-2)' : 'rgba(35,114,39,0.07)', border: `1px solid ${item.is_read ? 'var(--border)' : 'rgba(35,114,39,0.2)'}` }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <div style={{ fontSize: '14px', fontWeight: item.is_read ? 500 : 700, color: 'var(--text-0)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title || 'Workspace update'}</div>
+                  {!item.is_read && <LiveDot />}
                 </div>
-                <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: 6, lineHeight: 1.55 }}>{item.message || 'No message body available.'}</div>
+                <div style={{ fontSize: '13px', color: 'var(--text-3)', marginTop: 4, lineHeight: 1.5 }}>{item.message?.slice(0, 90) || 'No message.'}{item.message?.length > 90 ? '…' : ''}</div>
               </div>
             ))}
             {notifications.length === 0 && (
-              <div style={{ padding: '26px 18px', borderRadius: 'var(--r-lg)', border: '1px dashed var(--border-light)', textAlign: 'center', color: 'var(--text-2)' }}>
-                <Activity size={18} style={{ marginBottom: 8 }} />
-                No alerts are waiting right now.
+              <div style={{ padding: '28px 18px', borderRadius: 'var(--r-lg)', border: '1px dashed var(--border)', textAlign: 'center', color: 'var(--text-3)' }}>
+                <Activity size={18} style={{ marginBottom: 8, opacity: 0.5 }} />
+                <div style={{ fontSize: '15px' }}>No alerts right now</div>
               </div>
             )}
           </div>
         </Card>
       </div>
+
+      {/* ── Live project list & pending timesheets ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 'var(--sp-4)', alignItems: 'start' }}>
+
+        {/* Active projects list */}
+        {activeProjects.length > 0 && (
+          <Card className="card-hover animate-rise-in">
+            <PanelTitle
+              title="Active Projects"
+              sub="Progress and delivery status"
+              badge={<Badge color="var(--accent)">{activeProjects.length}</Badge>}
+            />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {activeProjects.slice(0, 6).map(p => <ProjectRow key={p.id} project={p} />)}
+              {activeProjects.length > 6 && (
+                <div style={{ fontSize: '14px', color: 'var(--text-3)', textAlign: 'center', padding: '6px 0' }}>+{activeProjects.length - 6} more projects</div>
+              )}
+            </div>
+          </Card>
+        )}
+
+        {/* Pending timesheets — manager/admin */}
+        {(role === 'admin' || role === 'manager') && pendingTimesheets.length > 0 && (
+          <Card className="card-hover animate-rise-in" style={{ border: '1px solid rgba(217,119,6,0.3)' }}>
+            <PanelTitle
+              title="Pending Timesheets"
+              sub={`${pendingTimesheets.length} entries waiting for your approval`}
+              badge={<Badge color="var(--warning)"><LiveDot color="var(--warning)" /> {pendingTimesheets.length}</Badge>}
+            />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {pendingTimesheets.slice(0, 8).map(e => <TimesheetRow key={e.id} entry={e} />)}
+              {pendingTimesheets.length > 8 && (
+                <div style={{ fontSize: '14px', color: 'var(--text-3)', textAlign: 'center', padding: '6px 0' }}>+{pendingTimesheets.length - 8} more · go to Approvals</div>
+              )}
+            </div>
+          </Card>
+        )}
+      </div>
+
     </div>
   )
 }

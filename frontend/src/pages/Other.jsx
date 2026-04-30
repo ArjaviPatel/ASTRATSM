@@ -41,23 +41,23 @@ export function NotificationsPage() {
     if (unread.length === 0) return
     const timer = setTimeout(async () => {
       await notificationsApi.markAllRead()
-      qc.invalidateQueries(['notifications'])
-      qc.invalidateQueries(['unread-count'])
+      qc.invalidateQueries({ queryKey: ['notifications'] })
+      qc.invalidateQueries({ queryKey: ['unread-count'] })
     }, 2000)
     return () => clearTimeout(timer)
   }, [unread.length])
 
   async function markRead(id) {
     await notificationsApi.markRead(id)
-    qc.invalidateQueries(['notifications']); qc.invalidateQueries(['unread-count'])
+    qc.invalidateQueries({ queryKey: ['notifications'] }); qc.invalidateQueries({ queryKey: ['unread-count'] })
   }
   async function markAll() {
     await notificationsApi.markAllRead()
-    qc.invalidateQueries(['notifications']); qc.invalidateQueries(['unread-count'])
+    qc.invalidateQueries({ queryKey: ['notifications'] }); qc.invalidateQueries({ queryKey: ['unread-count'] })
   }
   async function clearAll() {
     await notificationsApi.clearAll()
-    qc.invalidateQueries(['notifications']); qc.invalidateQueries(['unread-count'])
+    qc.invalidateQueries({ queryKey: ['notifications'] }); qc.invalidateQueries({ queryKey: ['unread-count'] })
   }
 
   const NOTIF_TYPE_LABEL = { project_assigned:'Project', status_change:'Status', deadline:'Deadline', timeline_complete:'Timeline', message:'Message', update:'Update', mention:'Mention' }
@@ -182,18 +182,32 @@ export function ResourcesPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['resources', page, search],
     queryFn: () => resourcesApi.list({ page, page_size: 25, search: search || undefined }).then(r => r.data),
-    keepPreviousData: true,
+    placeholderData: (prev) => prev,
+    staleTime: 15_000,
+    refetchOnWindowFocus: false,
   })
 
   const { data: managersData } = useQuery({
     queryKey: ['managers-all'],
     queryFn: () => authApi.users({ role: 'manager', is_active: true, page_size: 500 }).then(r => r.data.results || r.data),
+    enabled: isAdmin,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   })
 
   const { data: pendingEntriesData, isLoading: pendingEntriesLoading } = useQuery({
-    queryKey: ['pending-time-entries', user?.role],
-    queryFn: () => resourcesApi.timeEntries({ approved: false, page_size: 200 }).then(r => r.data.results || r.data),
+    queryKey: ['pending-time-entries', user?.id],
+    queryFn: async () => {
+      // Django BooleanField filterset: use 'false' string
+      const res = await resourcesApi.timeEntries({ approved: 'false', page_size: 500 })
+      const all = res.data.results || res.data || []
+      // Extra client-side guard: only unapproved entries
+      return all.filter(e => e.approved === false || e.approved === 'false')
+    },
     enabled: isManager,
+    staleTime: 10_000,
+    refetchInterval: 30000,
+    refetchOnWindowFocus: false,
   })
 
   const resources = data?.results || data || []
@@ -224,7 +238,7 @@ export function ResourcesPage() {
     try {
       await resourcesApi.delete(deletingResource.id)
       setDeletingResource(null)
-      qc.invalidateQueries(['resources'])
+      qc.invalidateQueries({ queryKey: ['resources'] })
     } finally {
       setDeleting(false)
     }
@@ -234,16 +248,23 @@ export function ResourcesPage() {
     setApprovingId(entryId)
     try {
       await resourcesApi.approveTimeEntry(entryId)
-      qc.invalidateQueries(['pending-time-entries'])
-      qc.invalidateQueries(['resources'])
-      qc.invalidateQueries(['dashboard-time-entries'])
-      qc.invalidateQueries(['dashboard-projects'])
-      qc.invalidateQueries(['dashboard-timelines'])
-      qc.invalidateQueries(['dashboard-resources'])
-      qc.invalidateQueries(['dashboard-notifications'])
+      qc.setQueryData(['pending-time-entries', user?.id], (prev = []) => prev.filter(e => e.id !== entryId))
+      qc.invalidateQueries({ queryKey: ['pending-time-entries'] })
+      qc.invalidateQueries({ queryKey: ['resources'] })
+      qc.invalidateQueries({ queryKey: ['dashboard-time-entries'] })
+      qc.invalidateQueries({ queryKey: ['dashboard-projects'] })
+      qc.invalidateQueries({ queryKey: ['dashboard-timelines'] })
+      qc.invalidateQueries({ queryKey: ['dashboard-resources'] })
+      qc.invalidateQueries({ queryKey: ['dashboard-notifications'] })
     } finally {
       setApprovingId(null)
     }
+  }
+
+  async function downloadResourceTimesheet(resource) {
+    const response = await resourcesApi.timesheetReport(resource.id)
+    const name = (resource.name || resource.user_detail?.name || 'resource').replace(/\s+/g, '_').toLowerCase()
+    downloadBlob(response, `timesheet_${name}.xlsx`)
   }
 
   return (
@@ -270,12 +291,12 @@ export function ResourcesPage() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search by name, email, resource ID, or manager..."
-            style={{ width: '100%', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '13px', padding: '9px 12px', outline: 'none' }}
+            style={{ width: '100%', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '15px', padding: '9px 12px', outline: 'none' }}
           />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
           <Btn variant="ghost" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>Prev</Btn>
-          <span style={{ fontSize: '12px', color: 'var(--text-2)', minWidth: 90, textAlign: 'center' }}>Page {page} / {totalPages}</span>
+          <span style={{ fontSize: '14px', color: 'var(--text-2)', minWidth: 90, textAlign: 'center' }}>Page {page} / {totalPages}</span>
           <Btn variant="ghost" disabled={page >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>Next</Btn>
         </div>
       </div>
@@ -303,6 +324,7 @@ export function ResourcesPage() {
             canManage={isAdmin}
             onEdit={setEditingResource}
             onDelete={setDeletingResource}
+            onDownloadReport={downloadResourceTimesheet}
           />
           <ResourceTable
             title="On Bench"
@@ -313,6 +335,7 @@ export function ResourcesPage() {
             canManage={isAdmin}
             onEdit={setEditingResource}
             onDelete={setDeletingResource}
+            onDownloadReport={downloadResourceTimesheet}
           />
         </>
       )}
@@ -321,7 +344,7 @@ export function ResourcesPage() {
         <ResourceFormModal
           managers={managers}
           onClose={() => setShowCreate(false)}
-          onSaved={() => { setShowCreate(false); qc.invalidateQueries(['resources']); qc.invalidateQueries(['dashboard-resources']) }}
+          onSaved={() => { setShowCreate(false); qc.invalidateQueries({ queryKey: ['resources'] }); qc.invalidateQueries({ queryKey: ['dashboard-resources'] }) }}
         />
       )}
 
@@ -330,14 +353,14 @@ export function ResourcesPage() {
           resource={editingResource}
           managers={managers}
           onClose={() => setEditingResource(null)}
-          onSaved={() => { setEditingResource(null); qc.invalidateQueries(['resources']); qc.invalidateQueries(['dashboard-resources']) }}
+          onSaved={() => { setEditingResource(null); qc.invalidateQueries({ queryKey: ['resources'] }); qc.invalidateQueries({ queryKey: ['dashboard-resources'] }) }}
         />
       )}
 
       {deletingResource && (
         <Modal open onClose={() => setDeletingResource(null)} title="Delete Resource" width={460}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
-            <p style={{ fontSize: '13px', color: 'var(--text-2)', lineHeight: 1.6 }}>
+            <p style={{ fontSize: '15px', color: 'var(--text-2)', lineHeight: 1.6 }}>
               Delete <strong style={{ color: 'var(--text-0)' }}>{deletingResource.name || deletingResource.user_detail?.name}</strong>? This also removes the linked resource login.
             </p>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--sp-2)' }}>
@@ -351,25 +374,25 @@ export function ResourcesPage() {
   )
 }
 
-function ResourceTable({ title, badge, resources, emptyText, borderColor, canManage, onEdit, onDelete }) {
+function ResourceTable({ title, badge, resources, emptyText, borderColor, canManage, onEdit, onDelete, onDownloadReport }) {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', marginBottom: 'var(--sp-3)' }}>
-        <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{title}</span>
-        <span style={{ background: badge.bg, color: badge.color, borderRadius: 'var(--r-full)', padding: '2px 8px', fontSize: '11px', fontWeight: 700 }}>
+        <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{title}</span>
+        <span style={{ background: badge.bg, color: badge.color, borderRadius: 'var(--r-full)', padding: '2px 8px', fontSize: '13px', fontWeight: 700 }}>
           {badge.text}
         </span>
       </div>
 
       <div style={{ background: 'var(--bg-1)', border: `1px solid ${borderColor || 'var(--border)'}`, borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
         {resources.length === 0 ? (
-          <p style={{ padding: 'var(--sp-5)', color: 'var(--text-3)', fontSize: '13px' }}>{emptyText}</p>
+          <p style={{ padding: 'var(--sp-5)', color: 'var(--text-3)', fontSize: '15px' }}>{emptyText}</p>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
                 {['Name', 'Resource ID', 'Email', 'Level', 'Manager', 'Logged', 'Approved', 'Pending', 'Active Projects', 'Availability', ...(canManage ? ['Actions'] : [])].map(h => (
-                  <th key={h} style={{ textAlign: 'left', padding: '10px 16px', fontSize: '11px', fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--border)' }}>{h}</th>
+                  <th key={h} style={{ textAlign: 'left', padding: '10px 16px', fontSize: '13px', fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--border)' }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -381,28 +404,29 @@ function ResourceTable({ title, badge, resources, emptyText, borderColor, canMan
                   <td style={{ padding: '12px 16px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
                       <Avatar name={r.name || r.user_detail?.name} src={r.user_detail?.avatar || r.user_detail?.avatar_url} size={32} role="resource" />
-                      <span style={{ fontWeight: 600, fontSize: '13px' }}>{r.name || r.user_detail?.name || '?'}</span>
+                      <span style={{ fontWeight: 600, fontSize: '15px' }}>{r.name || r.user_detail?.name || '?'}</span>
                     </div>
                   </td>
-                  <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontSize: '13px', color: 'var(--accent)' }}>{r.resource_id || '?'}</td>
-                  <td style={{ padding: '12px 16px', fontSize: '12px', color: 'var(--text-3)' }}>{r.email || r.user_detail?.email || '?'}</td>
-                  <td style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-2)' }}>{r.level || '?'}</td>
-                  <td style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-2)' }}>{r.manager_detail?.name || '?'}</td>
-                  <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontSize: '13px', color: 'var(--text-1)' }}>{Number(r.total_hours_logged || 0).toFixed(1)}h</td>
-                  <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontSize: '13px', color: 'var(--success)', fontWeight: 600 }}>{Number(r.approved_hours_logged || 0).toFixed(1)}h</td>
-                  <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontSize: '13px', color: Number(r.pending_hours_logged || 0) > 0 ? 'var(--warning)' : 'var(--text-3)', fontWeight: 600 }}>{Number(r.pending_hours_logged || 0).toFixed(1)}h</td>
-                  <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontSize: '13px', color: badge.color, fontWeight: 600 }}>{r.active_project_count ?? 0}</td>
+                  <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontSize: '15px', color: 'var(--accent)' }}>{r.resource_id || '?'}</td>
+                  <td style={{ padding: '12px 16px', fontSize: '14px', color: 'var(--text-3)' }}>{r.email || r.user_detail?.email || '?'}</td>
+                  <td style={{ padding: '12px 16px', fontSize: '15px', color: 'var(--text-2)' }}>{r.level || '?'}</td>
+                  <td style={{ padding: '12px 16px', fontSize: '15px', color: 'var(--text-2)' }}>{r.manager_detail?.name || '?'}</td>
+                  <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontSize: '15px', color: 'var(--text-1)' }}>{Number(r.total_hours_logged || 0).toFixed(1)}h</td>
+                  <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontSize: '15px', color: 'var(--success)', fontWeight: 600 }}>{Number(r.approved_hours_logged || 0).toFixed(1)}h</td>
+                  <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontSize: '15px', color: Number(r.pending_hours_logged || 0) > 0 ? 'var(--warning)' : 'var(--text-3)', fontWeight: 600 }}>{Number(r.pending_hours_logged || 0).toFixed(1)}h</td>
+                  <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontSize: '15px', color: badge.color, fontWeight: 600 }}>{r.active_project_count ?? 0}</td>
                   <td style={{ padding: '12px 16px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
                       <div style={{ flex: 1, maxWidth: 80, height: 4, background: 'var(--bg-3)', borderRadius: 2, overflow: 'hidden' }}>
                         <div style={{ width: `${r.availability}%`, height: '100%', background: r.availability > 50 ? 'var(--success)' : r.availability > 20 ? 'var(--warning)' : 'var(--danger)', borderRadius: 2 }} />
                       </div>
-                      <span style={{ fontSize: '12px', fontFamily: 'var(--font-mono)', color: 'var(--text-2)' }}>{r.availability}%</span>
+                      <span style={{ fontSize: '14px', fontFamily: 'var(--font-mono)', color: 'var(--text-2)' }}>{r.availability}%</span>
                     </div>
                   </td>
                   {canManage && (
                     <td style={{ padding: '12px 16px' }}>
                       <div style={{ display: 'flex', gap: 'var(--sp-2)' }}>
+                        <Btn variant="ghost" onClick={() => onDownloadReport(r)}>Report</Btn>
                         <Btn variant="ghost" onClick={() => onEdit(r)}>Edit</Btn>
                         <Btn variant="ghost" onClick={() => onDelete(r)} style={{ color: 'var(--danger)' }}><Trash2 size={14} /></Btn>
                       </div>
@@ -424,33 +448,40 @@ function PendingTimeApprovalTable({ entries, isLoading, approvingId, onApprove }
       <div style={{ padding: 'var(--sp-4) var(--sp-5)', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--sp-3)', flexWrap: 'wrap' }}>
         <div>
           <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1rem' }}>Pending Time Approvals</h3>
-          <p style={{ fontSize: '12px', color: 'var(--text-3)', marginTop: 4 }}>Review submitted work logs and approve them directly from here.</p>
+          <p style={{ fontSize: '14px', color: 'var(--text-3)', marginTop: 4 }}>Review submitted work logs and approve them directly from here.</p>
         </div>
         <Badge color={entries.length ? 'var(--warning)' : 'var(--success)'}>{entries.length} pending</Badge>
       </div>
       {isLoading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--sp-6)' }}><Spinner /></div>
       ) : entries.length === 0 ? (
-        <p style={{ padding: 'var(--sp-5)', color: 'var(--text-3)', fontSize: '13px' }}>No time entries are waiting for approval.</p>
+        <div style={{ padding: 'var(--sp-6)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, color: 'var(--text-3)' }}>
+          <div style={{ fontSize: '24px' }}>✓</div>
+          <p style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-2)' }}>No pending timesheets</p>
+          <p style={{ fontSize: '13px', textAlign: 'center', maxWidth: 380 }}>
+            When resources assigned to you submit their work logs, they will appear here for your approval.
+            Make sure resources have you set as their manager.
+          </p>
+        </div>
       ) : (
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
                 {['Resource', 'Project', 'Phase', 'Date', 'Hours', 'Notes', 'Action'].map(h => (
-                  <th key={h} style={{ textAlign: 'left', padding: '10px 16px', fontSize: '11px', fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--border)' }}>{h}</th>
+                  <th key={h} style={{ textAlign: 'left', padding: '10px 16px', fontSize: '13px', fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--border)' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {entries.map((entry, index) => (
                 <tr key={entry.id} style={{ borderBottom: index < entries.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                  <td style={{ padding: '12px 16px', fontWeight: 600, fontSize: '13px' }}>{entry.resource_name}</td>
-                  <td style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-2)' }}>{entry.project_name}</td>
-                  <td style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-2)' }}>{entry.timeline_name || 'Project-level log'}</td>
-                  <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-2)' }}>{entry.date}</td>
-                  <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontSize: '13px', color: 'var(--accent)', fontWeight: 700 }}>{entry.hours}h</td>
-                  <td style={{ padding: '12px 16px', fontSize: '12px', color: 'var(--text-3)', maxWidth: 320, whiteSpace: 'pre-wrap' }}>{entry.description || 'No notes provided.'}</td>
+                  <td style={{ padding: '12px 16px', fontWeight: 600, fontSize: '15px' }}>{entry.resource_name}</td>
+                  <td style={{ padding: '12px 16px', fontSize: '15px', color: 'var(--text-2)' }}>{entry.project_name}</td>
+                  <td style={{ padding: '12px 16px', fontSize: '15px', color: 'var(--text-2)' }}>{entry.timeline_name || 'Project-level log'}</td>
+                  <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontSize: '14px', color: 'var(--text-2)' }}>{entry.date}</td>
+                  <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontSize: '15px', color: 'var(--accent)', fontWeight: 700 }}>{entry.hours}h</td>
+                  <td style={{ padding: '12px 16px', fontSize: '14px', color: 'var(--text-3)', maxWidth: 320, whiteSpace: 'pre-wrap' }}>{entry.description || 'No notes provided.'}</td>
                   <td style={{ padding: '12px 16px' }}>
                     <Btn size="sm" loading={approvingId === entry.id} onClick={() => onApprove(entry.id)} icon={<CheckCircle size={13} />}>Approve</Btn>
                   </td>
@@ -485,7 +516,7 @@ function ResourceFormModal({ resource, managers, onClose, onSaved }) {
     border: '1px solid var(--border)',
     borderRadius: 'var(--r-md)',
     color: 'var(--text-0)',
-    fontSize: '13px',
+    fontSize: '15px',
     padding: '9px 12px',
     outline: 'none',
     cursor: 'pointer',
@@ -523,7 +554,7 @@ function ResourceFormModal({ resource, managers, onClose, onSaved }) {
   return (
     <Modal open onClose={onClose} title={isEdit ? 'Edit Resource' : 'New Resource'} width={560}>
       <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
-        {error && <div style={{ color: 'var(--danger)', fontSize: '13px', background: 'rgba(248,113,113,0.1)', padding: '8px 12px', borderRadius: 'var(--r-md)' }}>{error}</div>}
+        {error && <div style={{ color: 'var(--danger)', fontSize: '15px', background: 'rgba(248,113,113,0.1)', padding: '8px 12px', borderRadius: 'var(--r-md)' }}>{error}</div>}
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--sp-4)' }}>
           <Input label="Name" value={form.name} onChange={e => f('name', e.target.value)} required />
@@ -537,7 +568,7 @@ function ResourceFormModal({ resource, managers, onClose, onSaved }) {
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--sp-4)' }}>
           <div>
-            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Resource Level</div>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Resource Level</div>
             <select value={form.level} onChange={e => f('level', e.target.value)} style={dropdownStyle}>
               <option value="">Select level</option>
               <option value="L1">L1</option>
@@ -547,7 +578,7 @@ function ResourceFormModal({ resource, managers, onClose, onSaved }) {
             </select>
           </div>
           <div>
-            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Manager</div>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Manager</div>
             <select value={form.manager} onChange={e => f('manager', e.target.value)} style={dropdownStyle}>
               <option value="">Unassigned</option>
               {managers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
@@ -665,19 +696,19 @@ export function ProfilePage() {
               <Avatar name={user.name} src={avatarPreview} size={88} role={user.role} />
               <div style={{ paddingBottom: 4 }}>
                 <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '1.4rem', color: 'var(--text-0)' }}>{user.name}</div>
-                <div style={{ fontSize: '13px', color: 'var(--text-3)', marginTop: 2 }}>{user.email}</div>
+                <div style={{ fontSize: '15px', color: 'var(--text-3)', marginTop: 2 }}>{user.email}</div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
-                  <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: 'var(--r-full)', background: 'rgba(35,114,39,0.12)', color: 'var(--accent)', border: '1px solid rgba(35,114,39,0.25)' }}>
+                  <span style={{ fontSize: '13px', padding: '3px 10px', borderRadius: 'var(--r-full)', background: 'rgba(35,114,39,0.12)', color: 'var(--accent)', border: '1px solid rgba(35,114,39,0.25)' }}>
                     {user.department || 'General'}
                   </span>
-                  <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: 'var(--r-full)', background: 'rgba(122,166,184,0.12)', color: 'var(--info)', border: '1px solid rgba(122,166,184,0.25)' }}>
+                  <span style={{ fontSize: '13px', padding: '3px 10px', borderRadius: 'var(--r-full)', background: 'rgba(122,166,184,0.12)', color: 'var(--info)', border: '1px solid rgba(122,166,184,0.25)' }}>
                     {user.phone || 'No phone added'}
                   </span>
                 </div>
               </div>
             </div>
             <span style={{
-              fontSize: '11px', fontWeight: 800, letterSpacing: '0.1em',
+              fontSize: '13px', fontWeight: 800, letterSpacing: '0.1em',
               textTransform: 'uppercase', padding: '4px 14px',
               borderRadius: 'var(--r-full)', marginBottom: 6,
               background: `${ROLE_COLOR[user.role]}18`,
@@ -709,8 +740,8 @@ export function ProfilePage() {
               ['Role Summary', user.bio || 'No profile summary added yet'],
             ].map(([label, value]) => (
               <div key={label} style={{ padding: '14px 16px', borderRadius: 'var(--r-md)', background: 'var(--surface-1)', border: '1px solid var(--border)' }}>
-                <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-3)', marginBottom: 6 }}>{label}</div>
-                <div style={{ fontSize: '13px', color: 'var(--text-1)' }}>{value}</div>
+                <div style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-3)', marginBottom: 6 }}>{label}</div>
+                <div style={{ fontSize: '15px', color: 'var(--text-1)' }}>{value}</div>
               </div>
             ))}
           </div>
@@ -718,9 +749,9 @@ export function ProfilePage() {
             <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 'var(--sp-4)', alignItems: 'center', padding: 'var(--sp-4)', borderRadius: 'var(--r-md)', background: 'var(--bg-2)', border: '1px solid var(--border)' }}>
               <Avatar name={user.name} src={avatarPreview} size={72} role={user.role} />
               <div>
-                <div style={{ fontSize: '13px', fontWeight: 700, marginBottom: 8 }}>Profile image</div>
+                <div style={{ fontSize: '15px', fontWeight: 700, marginBottom: 8 }}>Profile image</div>
                 <input type="file" accept="image/*" onChange={e => setForm(f => ({ ...f, avatar: e.target.files?.[0] || null }))} style={{ width: '100%' }} />
-                <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: 6 }}>PNG, JPG, or WEBP up to 2 MB.</div>
+                <div style={{ fontSize: '13px', color: 'var(--text-3)', marginTop: 6 }}>PNG, JPG, or WEBP up to 2 MB.</div>
               </div>
             </div>
             <Input label="Name" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Enter your full name" />
@@ -730,7 +761,7 @@ export function ProfilePage() {
             </div>
             <Textarea label="Role Summary" value={form.bio} onChange={e => setForm(f => ({ ...f, bio: e.target.value }))} placeholder="Add your role focus, working style, skills, or project context..." rows={5} />
             {msg && (
-              <div style={{ fontSize: '12px', padding: '8px 12px', borderRadius: 'var(--r-md)', background: msg.includes('!') ? 'rgba(74,222,128,0.1)' : 'rgba(248,113,113,0.1)', color: msg.includes('!') ? 'var(--success)' : 'var(--danger)' }}>
+              <div style={{ fontSize: '14px', padding: '8px 12px', borderRadius: 'var(--r-md)', background: msg.includes('!') ? 'rgba(74,222,128,0.1)' : 'rgba(248,113,113,0.1)', color: msg.includes('!') ? 'var(--success)' : 'var(--danger)' }}>
                 {msg}
               </div>
             )}
@@ -750,7 +781,7 @@ export function ProfilePage() {
             </Btn>
           </div>
           <div style={{ padding: 'var(--sp-6)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
-            <div style={{ padding: '14px 16px', borderRadius: 'var(--r-md)', background: 'var(--surface-1)', border: '1px solid var(--border)', fontSize: '12px', color: 'var(--text-2)' }}>
+            <div style={{ padding: '14px 16px', borderRadius: 'var(--r-md)', background: 'var(--surface-1)', border: '1px solid var(--border)', fontSize: '14px', color: 'var(--text-2)' }}>
               Your role permissions are still controlled by admins and managers. This section only updates your own password.
             </div>
             {isEditingPassword && <form onSubmit={changePassword} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)', paddingTop: 'var(--sp-2)', borderTop: '1px solid var(--border)' }}>
@@ -758,7 +789,7 @@ export function ProfilePage() {
             <Input label="New Password" type="password" value={pwForm.new_password} onChange={e => setPwForm(f => ({ ...f, new_password: e.target.value }))} />
             <Input label="Confirm New Password" type="password" value={pwForm.confirm} onChange={e => setPwForm(f => ({ ...f, confirm: e.target.value }))} />
             {pwMsg && (
-              <div style={{ fontSize: '12px', padding: '8px 12px', borderRadius: 'var(--r-md)', background: pwMsg.includes('!') ? 'rgba(74,222,128,0.1)' : 'rgba(248,113,113,0.1)', color: pwMsg.includes('!') ? 'var(--success)' : 'var(--danger)' }}>
+              <div style={{ fontSize: '14px', padding: '8px 12px', borderRadius: 'var(--r-md)', background: pwMsg.includes('!') ? 'rgba(74,222,128,0.1)' : 'rgba(248,113,113,0.1)', color: pwMsg.includes('!') ? 'var(--success)' : 'var(--danger)' }}>
                 {pwMsg}
               </div>
             )}
@@ -798,12 +829,12 @@ export function SettingsPage() {
 
   async function toggleStatus(userId) {
     await authApi.toggleStatus(userId)
-    qc.invalidateQueries(['users-all'])
+    qc.invalidateQueries({ queryKey: ['users-all'] })
   }
 
   async function changeRole(userId, role) {
     await authApi.changeRole(userId, role)
-    qc.invalidateQueries(['users-all'])
+    qc.invalidateQueries({ queryKey: ['users-all'] })
   }
 
   if (!hasPermission('access_control')) {
@@ -836,7 +867,7 @@ export function SettingsPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
             <Users size={16} color="var(--text-2)" />
             <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1rem' }}>User Management</h3>
-            <span style={{ fontSize: '11px', color: 'var(--text-3)', background: 'var(--bg-3)', padding: '2px 8px', borderRadius: 'var(--r-full)', fontFamily: 'var(--font-mono)' }}>
+            <span style={{ fontSize: '13px', color: 'var(--text-3)', background: 'var(--bg-3)', padding: '2px 8px', borderRadius: 'var(--r-full)', fontFamily: 'var(--font-mono)' }}>
               {activeCount}/{allUsers.length} active
             </span>
           </div>
@@ -847,7 +878,7 @@ export function SettingsPage() {
               <button key={role} onClick={() => setRoleFilter(f => f === role ? '' : role)} style={{
                 background: roleFilter === role ? ROLE_BG[role] : 'var(--bg-2)',
                 border: `1px solid ${roleFilter === role ? ROLE_COLOR[role] + '50' : 'var(--border)'}`,
-                borderRadius: 'var(--r-full)', padding: '3px 10px', fontSize: '11px', fontWeight: 600,
+                borderRadius: 'var(--r-full)', padding: '3px 10px', fontSize: '13px', fontWeight: 600,
                 color: roleFilter === role ? ROLE_COLOR[role] : 'var(--text-3)',
                 cursor: 'pointer', transition: 'all var(--t-fast)',
                 display: 'flex', alignItems: 'center', gap: 5,
@@ -869,7 +900,7 @@ export function SettingsPage() {
               placeholder="Search by name or email…"
               style={{
                 width: '100%', background: 'var(--bg-1)', border: '1px solid var(--border)',
-                borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '12px',
+                borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '14px',
                 padding: '7px 12px 7px 32px', outline: 'none', boxSizing: 'border-box',
               }}
             />
@@ -891,13 +922,13 @@ export function SettingsPage() {
               <thead style={{ position: 'sticky', top: 0, background: 'var(--bg-1)', zIndex: 1 }}>
                 <tr>
                   {['User', 'Role', 'Status', 'Action'].map(h => (
-                    <th key={h} style={{ textAlign: 'left', padding: '9px 16px', fontSize: '10px', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--border)' }}>{h}</th>
+                    <th key={h} style={{ textAlign: 'left', padding: '9px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--border)' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {filteredUsers.length === 0 ? (
-                  <tr><td colSpan={4} style={{ padding: 'var(--sp-6)', textAlign: 'center', color: 'var(--text-3)', fontSize: '13px' }}>No users match your search.</td></tr>
+                  <tr><td colSpan={4} style={{ padding: 'var(--sp-6)', textAlign: 'center', color: 'var(--text-3)', fontSize: '15px' }}>No users match your search.</td></tr>
                 ) : filteredUsers.map((u, i) => (
                   <tr key={u.id}
                     style={{ borderBottom: i < filteredUsers.length - 1 ? '1px solid var(--border)' : 'none', opacity: u.is_active ? 1 : 0.5 }}
@@ -909,8 +940,8 @@ export function SettingsPage() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <Avatar name={u.name} src={u.avatar || u.avatar_url} size={30} role={u.role} />
                         <div>
-                          <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-0)' }}>{u.name}</div>
-                          <div style={{ fontSize: '11px', color: 'var(--text-3)' }}>{u.email}</div>
+                          <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-0)' }}>{u.name}</div>
+                          <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>{u.email}</div>
                         </div>
                       </div>
                     </td>
@@ -921,7 +952,7 @@ export function SettingsPage() {
                         style={{
                           background: ROLE_BG[u.role], border: `1px solid ${ROLE_COLOR[u.role]}40`,
                           borderRadius: 'var(--r-sm)', color: ROLE_COLOR[u.role],
-                          fontSize: '11px', fontWeight: 700, padding: '4px 8px',
+                          fontSize: '13px', fontWeight: 700, padding: '4px 8px',
                           cursor: 'pointer', outline: 'none', textTransform: 'capitalize',
                         }}>
                         {['admin', 'manager', 'resource', 'client'].map(r => <option key={r} value={r}>{r}</option>)}
@@ -931,7 +962,7 @@ export function SettingsPage() {
                     {/* Status */}
                     <td style={{ padding: '10px 16px' }}>
                       <span style={{
-                        fontSize: '11px', fontWeight: 700, padding: '3px 9px', borderRadius: 'var(--r-full)',
+                        fontSize: '13px', fontWeight: 700, padding: '3px 9px', borderRadius: 'var(--r-full)',
                         background: u.is_active ? 'rgba(74,222,128,0.12)' : 'var(--bg-3)',
                         color: u.is_active ? 'var(--success)' : 'var(--text-3)',
                         border: `1px solid ${u.is_active ? 'rgba(74,222,128,0.3)' : 'var(--border)'}`,
@@ -946,7 +977,7 @@ export function SettingsPage() {
                         background: 'none',
                         border: `1px solid ${u.is_active ? 'var(--border)' : 'rgba(74,222,128,0.4)'}`,
                         borderRadius: 'var(--r-sm)', cursor: 'pointer', padding: '4px 12px',
-                        fontSize: '11px', fontWeight: 600,
+                        fontSize: '13px', fontWeight: 600,
                         color: u.is_active ? 'var(--text-3)' : 'var(--success)',
                         transition: 'all var(--t-fast)',
                       }}
@@ -971,7 +1002,7 @@ export function SettingsPage() {
 
         {/* Footer count */}
         {!uLoad && filteredUsers.length > 0 && (
-          <div style={{ padding: '8px 16px', borderTop: '1px solid var(--border)', background: 'var(--bg-2)', fontSize: '11px', color: 'var(--text-3)' }}>
+          <div style={{ padding: '8px 16px', borderTop: '1px solid var(--border)', background: 'var(--bg-2)', fontSize: '13px', color: 'var(--text-3)' }}>
             Showing {filteredUsers.length} of {allUsers.length} users
           </div>
         )}
@@ -995,7 +1026,7 @@ export function SettingsPage() {
               <div key={rp.id} style={{ background: 'var(--bg-2)', borderRadius: 'var(--r-md)', padding: 'var(--sp-4)', border: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 'var(--sp-3)' }}>
                   <span style={{ width: 8, height: 8, borderRadius: '50%', background: ROLE_COLOR[rp.role] || 'var(--text-3)', display: 'inline-block' }} />
-                  <span style={{ fontSize: '12px', fontWeight: 700, color: ROLE_COLOR[rp.role] || 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{rp.role}</span>
+                  <span style={{ fontSize: '14px', fontWeight: 700, color: ROLE_COLOR[rp.role] || 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{rp.role}</span>
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   {Object.entries(rp.permissions || {}).map(([key, val]) => (
@@ -1003,7 +1034,7 @@ export function SettingsPage() {
                       display: 'flex', alignItems: 'center', gap: 5, padding: '3px 10px',
                       background: val ? 'rgba(74,222,128,0.08)' : 'var(--bg-3)',
                       border: `1px solid ${val ? 'rgba(74,222,128,0.25)' : 'var(--border)'}`,
-                      borderRadius: 'var(--r-full)', fontSize: '11px',
+                      borderRadius: 'var(--r-full)', fontSize: '13px',
                       color: val ? 'var(--success)' : 'var(--text-3)',
                     }}>
                       <div style={{ width: 5, height: 5, borderRadius: '50%', background: val ? 'var(--success)' : 'var(--text-3)', flexShrink: 0 }} />
@@ -1109,10 +1140,10 @@ function EmailRoutingSection() {
           <Mail size={16} color="var(--text-2)" />
           <div>
             <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1rem' }}>Email Delivery Matrix</h3>
-            <p style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: 2 }}>Read-only map of which workflow sends email to which role.</p>
+            <p style={{ fontSize: '13px', color: 'var(--text-3)', marginTop: 2 }}>Read-only map of which workflow sends email to which role.</p>
           </div>
         </div>
-        <span style={{ fontSize: '11px', color: 'var(--text-3)', background: 'var(--bg-3)', padding: '2px 8px', borderRadius: 'var(--r-full)', fontFamily: 'var(--font-mono)' }}>live rules</span>
+        <span style={{ fontSize: '13px', color: 'var(--text-3)', background: 'var(--bg-3)', padding: '2px 8px', borderRadius: 'var(--r-full)', fontFamily: 'var(--font-mono)' }}>live rules</span>
       </div>
 
       <div style={{ overflowX: 'auto' }}>
@@ -1120,23 +1151,23 @@ function EmailRoutingSection() {
           <thead>
             <tr>
               {['Email Event', 'Admin', 'Manager', 'Resource', 'Client', 'Rule'].map(h => (
-                <th key={h} style={{ textAlign: 'left', padding: '10px 16px', fontSize: '11px', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--border)' }}>{h}</th>
+                <th key={h} style={{ textAlign: 'left', padding: '10px 16px', fontSize: '13px', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--border)' }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {EMAIL_EVENT_MATRIX.map((row, index) => (
               <tr key={row.event} style={{ borderBottom: index < EMAIL_EVENT_MATRIX.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                <td style={{ padding: '14px 16px', fontWeight: 700, fontSize: '13px', color: 'var(--text-0)' }}>{row.event}</td>
+                <td style={{ padding: '14px 16px', fontWeight: 700, fontSize: '15px', color: 'var(--text-0)' }}>{row.event}</td>
                 {['admin', 'manager', 'resource', 'client'].map(role => (
                   <td key={role} style={{ padding: '14px 16px' }}>
-                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: row[role] ? 'var(--success)' : 'var(--text-3)', fontSize: '12px', fontWeight: 600 }}>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: row[role] ? 'var(--success)' : 'var(--text-3)', fontSize: '14px', fontWeight: 600 }}>
                       <input type="checkbox" checked={row[role]} readOnly disabled style={{ width: 14, height: 14, accentColor: 'var(--accent)' }} />
                       {row[role] ? 'Yes' : 'No'}
                     </label>
                   </td>
                 ))}
-                <td style={{ padding: '14px 16px', fontSize: '12px', color: 'var(--text-2)', lineHeight: 1.6, minWidth: 280 }}>{row.rule}</td>
+                <td style={{ padding: '14px 16px', fontSize: '14px', color: 'var(--text-2)', lineHeight: 1.6, minWidth: 280 }}>{row.rule}</td>
               </tr>
             ))}
           </tbody>
@@ -1178,7 +1209,7 @@ export function NotificationPreferencesSection() {
     } else {
       await notificationsApi.createPrefs({ resource: resourceId, allowed_types: newTypes })
     }
-    qc.invalidateQueries(['notif-prefs'])
+    qc.invalidateQueries({ queryKey: ['notif-prefs'] })
   }
 
   const allResources = (resources || []).filter(u => u.role === 'resource')
@@ -1195,10 +1226,10 @@ export function NotificationPreferencesSection() {
           <Bell size={16} color="var(--text-2)" />
           <div>
             <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1rem' }}>Resource Notification Permissions</h3>
-            <p style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: 2 }}>Toggle which notifications each resource receives.</p>
+            <p style={{ fontSize: '13px', color: 'var(--text-3)', marginTop: 2 }}>Toggle which notifications each resource receives.</p>
           </div>
         </div>
-        <span style={{ fontSize: '11px', color: 'var(--text-3)', background: 'var(--bg-3)', padding: '2px 8px', borderRadius: 'var(--r-full)', fontFamily: 'var(--font-mono)' }}>
+        <span style={{ fontSize: '13px', color: 'var(--text-3)', background: 'var(--bg-3)', padding: '2px 8px', borderRadius: 'var(--r-full)', fontFamily: 'var(--font-mono)' }}>
           {allResources.length} resources
         </span>
       </div>
@@ -1213,7 +1244,7 @@ export function NotificationPreferencesSection() {
             placeholder="Search resources…"
             style={{
               width: '100%', background: 'var(--bg-1)', border: '1px solid var(--border)',
-              borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '12px',
+              borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '14px',
               padding: '7px 12px 7px 32px', outline: 'none', boxSizing: 'border-box',
             }}
           />
@@ -1234,9 +1265,9 @@ export function NotificationPreferencesSection() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead style={{ position: 'sticky', top: 0, background: 'var(--bg-1)', zIndex: 1 }}>
               <tr>
-                <th style={{ textAlign: 'left', padding: '9px 16px', fontSize: '10px', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--border)', width: 200 }}>Resource</th>
+                <th style={{ textAlign: 'left', padding: '9px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--border)', width: 200 }}>Resource</th>
                 {NOTIF_TYPES.map(t => (
-                  <th key={t.value} style={{ textAlign: 'center', padding: '9px 10px', fontSize: '10px', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>
+                  <th key={t.value} style={{ textAlign: 'center', padding: '9px 10px', fontSize: '12px', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>
                     {t.label}
                   </th>
                 ))}
@@ -1244,7 +1275,7 @@ export function NotificationPreferencesSection() {
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={NOTIF_TYPES.length + 1} style={{ padding: 'var(--sp-6)', textAlign: 'center', color: 'var(--text-3)', fontSize: '13px' }}>No resources found.</td></tr>
+                <tr><td colSpan={NOTIF_TYPES.length + 1} style={{ padding: 'var(--sp-6)', textAlign: 'center', color: 'var(--text-3)', fontSize: '15px' }}>No resources found.</td></tr>
               ) : filtered.map((resource, i) => {
                 const prefs = prefsMap[resource.id]
                 const allowed = prefs?.allowed_types ?? NOTIF_TYPES.map(t => t.value)
@@ -1259,8 +1290,8 @@ export function NotificationPreferencesSection() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <Avatar name={resource.name} size={28} role="resource" />
                         <div>
-                          <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-0)' }}>{resource.name}</div>
-                          <div style={{ fontSize: '11px', color: 'var(--text-3)' }}>{resource.department || 'Resource'}</div>
+                          <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-0)' }}>{resource.name}</div>
+                          <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>{resource.department || 'Resource'}</div>
                         </div>
                       </div>
                     </td>
@@ -1301,7 +1332,7 @@ export function NotificationPreferencesSection() {
 
       {/* Footer */}
       {!rLoad && filtered.length > 0 && (
-        <div style={{ padding: '8px 16px', borderTop: '1px solid var(--border)', background: 'var(--bg-2)', fontSize: '11px', color: 'var(--text-3)' }}>
+        <div style={{ padding: '8px 16px', borderTop: '1px solid var(--border)', background: 'var(--bg-2)', fontSize: '13px', color: 'var(--text-3)' }}>
           Showing {filtered.length} of {allResources.length} resources
         </div>
       )}

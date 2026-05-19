@@ -106,7 +106,7 @@ export default function ProjectsPage() {
       <div className="mobile-center-search" style={{ display: 'flex', gap: 'var(--sp-3)', flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
           <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)', pointerEvents: 'none' }} />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search projects or client name…"
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search projects…"
             style={{ width: '100%', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '15px', padding: '8px 12px 8px 32px', outline: 'none' }} />
         </div>
         <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setOverBudgetOnly(false) }} style={fss}>
@@ -291,6 +291,7 @@ function CreateProjectModal({ onClose, onCreated }) {
     resource_L1: '', resource_L2: '', resource_L3: '', resource_L4: '',
     activity: '',
   })
+  const [selectedResources, setSelectedResources] = useState([])
   const [clientSearch, setClientSearch] = useState('')
   const [showClientDropdown, setShowClientDropdown] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -300,7 +301,9 @@ function CreateProjectModal({ onClose, onCreated }) {
   const calculatedHours = workingDays * 8
 
   const { data: clients } = useQuery({ queryKey: ['clients-all'], queryFn: () => clientsApi.list({ page_size: 500 }).then(r => r.data.results || r.data) })
+  const { data: resourcesData } = useQuery({ queryKey: ['resources-dropdown'], queryFn: () => resourcesApi.list({ page_size: 500 }).then(r => r.data.results || r.data) })
   const { data: managers } = useQuery({ queryKey: ['project-create-managers'], queryFn: () => authApi.users({ role: 'manager', is_active: true, page_size: 500 }).then(r => r.data.results || r.data) })
+  const allResources = (resourcesData || []).filter(r => r.user_detail?.is_active)
 
   const filteredClients = (clients || []).filter(c => c.name.toLowerCase().includes(clientSearch.toLowerCase()))
 
@@ -320,8 +323,13 @@ function CreateProjectModal({ onClose, onCreated }) {
         start_date: form.start_date || undefined,
         end_date: form.end_date || undefined,
         budget: form.budget ? parseFloat(form.budget) : 0,
+        resource_l1: parseInt(form.resource_L1) || 0,
+        resource_l2: parseInt(form.resource_L2) || 0,
+        resource_l3: parseInt(form.resource_L3) || 0,
+        resource_l4: parseInt(form.resource_L4) || 0,
         hours: calculatedHours,
         activity: form.activity || '',
+        resources: selectedResources,
       }
       if (form.client) payload.client = form.client
       if (form.manager) payload.manager = form.manager
@@ -346,29 +354,52 @@ function CreateProjectModal({ onClose, onCreated }) {
         <Input label="Project ID" value={form.project_id} onChange={e => f('project_id', e.target.value)} required placeholder="e.g. 12" />
         <Textarea label="Description" value={form.description} onChange={e => f('description', e.target.value)} placeholder="Project overview…" />
 
-        {/* Client — searchable */}
+        {/* Client — searchable dropdown, uses onMouseDown+preventDefault to prevent blur race */}
         <div style={{ position: 'relative' }}>
           <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-2)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Client</div>
-          <input value={clientSearch}
-            onChange={e => { setClientSearch(e.target.value); setShowClientDropdown(true); if (!e.target.value) clearClient() }}
-            onFocus={() => setShowClientDropdown(true)}
-            onBlur={() => setTimeout(() => setShowClientDropdown(false), 150)}
-            placeholder="Search client name…"
-            style={{ width: '100%', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '15px', padding: '8px 12px', outline: 'none', boxSizing: 'border-box' }} />
+          <div style={{ position: 'relative' }}>
+            <input
+              value={clientSearch}
+              onChange={e => { setClientSearch(e.target.value); setShowClientDropdown(true); if (!e.target.value) clearClient() }}
+              onFocus={() => setShowClientDropdown(true)}
+              onBlur={() => setShowClientDropdown(false)}
+              placeholder="Search client name…"
+              style={{ width: '100%', background: 'var(--bg-2)', border: `1px solid ${form.client ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '15px', padding: '8px 36px 8px 12px', outline: 'none', boxSizing: 'border-box' }}
+            />
+            {form.client && (
+              <button type="button" onMouseDown={e => { e.preventDefault(); clearClient() }}
+                style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', fontSize: 16, lineHeight: 1, padding: 2 }}>✕</button>
+            )}
+          </div>
           {showClientDropdown && (
-            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200, background: 'var(--bg-1)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', maxHeight: 200, overflowY: 'auto', marginTop: 4, boxShadow: 'var(--shadow-md)' }}>
-              <div onMouseDown={clearClient} style={{ padding: '8px 12px', fontSize: '15px', color: 'var(--text-3)', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
+            <div
+              onMouseDown={e => e.preventDefault()}
+              style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 300, background: 'var(--bg-1)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', maxHeight: 220, overflowY: 'auto', marginTop: 4, boxShadow: 'var(--shadow-md)' }}
+            >
+              <div onClick={clearClient}
+                style={{ padding: '8px 12px', fontSize: '15px', color: 'var(--text-3)', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
                 onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-2)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>— No client —</div>
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                — No client —
+              </div>
+              {filteredClients.length === 0 && clientSearch && (
+                <div style={{ padding: '8px 12px', fontSize: '14px', color: 'var(--text-3)' }}>No clients match "{clientSearch}"</div>
+              )}
               {filteredClients.map(c => (
-                <div key={c.id} onMouseDown={() => selectClient(c)}
-                  style={{ padding: '8px 12px', fontSize: '15px', color: form.client === c.id ? 'var(--accent)' : 'var(--text-1)', cursor: 'pointer', fontWeight: form.client === c.id ? 600 : 400 }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-2)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>{c.name}</div>
+                <div key={c.id} onClick={() => selectClient(c)}
+                  style={{ padding: '8px 12px', fontSize: '15px', color: String(form.client) === String(c.id) ? 'var(--accent)' : 'var(--text-1)', cursor: 'pointer', fontWeight: String(form.client) === String(c.id) ? 600 : 400, background: String(form.client) === String(c.id) ? 'rgba(99,102,241,0.08)' : 'transparent' }}
+                  onMouseEnter={e => { if (String(form.client) !== String(c.id)) e.currentTarget.style.background = 'var(--bg-2)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = String(form.client) === String(c.id) ? 'rgba(99,102,241,0.08)' : 'transparent' }}>
+                  {c.name}
+                </div>
               ))}
             </div>
           )}
-          {form.client && <div style={{ fontSize: '13px', color: 'var(--accent)', marginTop: 4 }}>✓ {clientSearch}</div>}
+          {!showClientDropdown && form.client && (
+            <div style={{ fontSize: '13px', color: 'var(--accent)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span>✓</span> <span>{clientSearch}</span>
+            </div>
+          )}
         </div>
 
         {/* Status + Priority */}
@@ -416,6 +447,21 @@ function CreateProjectModal({ onClose, onCreated }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', padding: 'var(--sp-4)' }}>
           <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Budget</div>
 
+          <div>
+            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-2)', marginBottom: 8 }}>Resource Level</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))', gap: 'var(--sp-3)' }}>
+              {['L1', 'L2', 'L3', 'L4'].map(level => (
+                <div key={level}>
+                  <div style={{ fontSize: '13px', color: 'var(--text-3)', marginBottom: 4, fontWeight: 600 }}>{level}</div>
+                  <input type="number" min="0" value={form[`resource_${level}`] || ''} onChange={e => f(`resource_${level}`, e.target.value)} placeholder="0"
+                    style={{ width: '100%', background: 'var(--bg-1)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '15px', padding: '7px 10px', outline: 'none', boxSizing: 'border-box' }}
+                    onFocus={e => e.target.style.borderColor = 'var(--accent)'}
+                    onBlur={e => e.target.style.borderColor = 'var(--border)'} />
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* Hours — read-only, auto-calculated */}
           <div>
             <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-2)', marginBottom: 4 }}>Hours (Auto-calculated from dates)</div>
@@ -434,6 +480,8 @@ function CreateProjectModal({ onClose, onCreated }) {
         </div>
 
         {/* Resources — with bench/active filter, L4 mandatory */}
+        <ResourceAssignSection selectedResources={selectedResources} setSelectedResources={setSelectedResources} allResources={allResources} />
+
         <div style={{ display: 'flex', gap: 'var(--sp-3)', justifyContent: 'flex-end', marginTop: 'var(--sp-2)' }}>
           <Btn type="submit" loading={loading}>Create Project</Btn>
         </div>

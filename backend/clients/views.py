@@ -33,7 +33,9 @@ class ClientViewSet(viewsets.ModelViewSet):
         if user.role == User.Role.MANAGER:
             return base.filter(projects__manager=user).distinct()
         if user.role == User.Role.RESOURCE:
-            return base.filter(projects__resources=user).distinct()
+            # Resources can see all clients (read-only) so they can
+            # select any client when filling timesheets and project forms
+            return base.all()
         if user.role == User.Role.CLIENT:
             return base.filter(Q(portal_user=user) | Q(projects__resources=user)).distinct()
         return base.none()

@@ -1151,3 +1151,169 @@ WARNING 2026-05-12 12:08:20,489 log 16644 28980 Bad Request: /api/v1/resources/l
 WARNING 2026-05-12 12:08:20,490 basehttp 16644 28980 "POST /api/v1/resources/late-entry-approvals/ HTTP/1.1" 400 109
 WARNING 2026-05-12 12:08:33,018 log 16644 29452 Bad Request: /api/v1/resources/late-entry-approvals/
 WARNING 2026-05-12 12:08:33,019 basehttp 16644 29452 "POST /api/v1/resources/late-entry-approvals/ HTTP/1.1" 400 109
+WARNING 2026-05-19 07:13:30,005 log 47183 132703366459520 Not Found: /api/.env
+WARNING 2026-05-19 07:13:33,575 log 47183 132703366459520 Not Found: /api/test
+WARNING 2026-05-19 07:13:35,358 log 47183 132703366459520 Not Found: /api/.env/wp-admin/.env
+WARNING 2026-05-19 07:51:27,844 log 47182 132703366459520 Not Found: /api/.env
+WARNING 2026-05-19 09:59:34,015 log 47183 132703366459520 Bad Request: /api/v1/projects/
+WARNING 2026-05-19 09:59:35,061 log 47182 132703366459520 Bad Request: /api/v1/projects/
+WARNING 2026-05-19 10:49:07,582 log 47182 132703366459520 Bad Request: /api/v1/auth/login/
+WARNING 2026-05-19 10:52:50,548 log 47182 132703366459520 Bad Request: /api/v1/auth/login/
+WARNING 2026-05-19 10:54:46,783 views 47181 132703366459520 Admin rishabh.p@astracybertech.com toggled status of shamita@astracybertech.com -> is_active=False
+WARNING 2026-05-19 11:21:48,344 log 47182 132703366459520 Bad Request: /api/v1/auth/login/
+WARNING 2026-05-19 11:21:57,436 log 47182 132703366459520 Bad Request: /api/v1/auth/login/
+WARNING 2026-05-19 11:22:02,930 log 47183 132703366459520 Bad Request: /api/v1/auth/login/
+WARNING 2026-05-19 11:22:10,845 log 47183 132703366459520 Bad Request: /api/v1/auth/login/
+WARNING 2026-05-19 11:22:52,047 log 47183 132703366459520 Bad Request: /api/v1/auth/login/
+WARNING 2026-05-19 11:23:07,033 log 47183 132703366459520 Bad Request: /api/v1/auth/login/
+WARNING 2026-05-19 11:23:11,053 log 47183 132703366459520 Bad Request: /api/v1/auth/login/
+WARNING 2026-05-19 11:23:15,361 log 47181 132703366459520 Bad Request: /api/v1/auth/login/
+WARNING 2026-05-19 11:23:28,828 log 47181 132703366459520 Bad Request: /api/v1/auth/login/
+WARNING 2026-05-19 11:23:33,803 log 47183 132703366459520 Bad Request: /api/v1/auth/login/
+WARNING 2026-05-19 11:23:39,975 log 47181 132703366459520 Bad Request: /api/v1/auth/login/
+WARNING 2026-05-19 11:23:46,350 log 47182 132703366459520 Bad Request: /api/v1/auth/login/
+WARNING 2026-05-19 11:37:17,907 log 47182 132703366459520 Bad Request: /api/v1/auth/login/
+WARNING 2026-05-19 12:11:01,670 log 52842 130278473564288 Not Found: /api/.env
+WARNING 2026-05-19 12:11:05,094 log 52842 130278473564288 Not Found: /api/test
+WARNING 2026-05-19 12:11:08,370 log 52843 130278473564288 Not Found: /api/phpinfo
+WARNING 2026-05-19 12:21:27,596 log 52843 130278473564288 Bad Request: /api/v1/auth/login/verify-otp/
+WARNING 2026-05-19 12:21:29,265 log 52843 130278473564288 Bad Request: /api/v1/auth/login/verify-otp/
+WARNING 2026-05-19 12:21:31,579 log 52843 130278473564288 Bad Request: /api/v1/auth/login/verify-otp/
+WARNING 2026-05-19 12:43:11,775 log 52842 130278473564288 Bad Request: /api/v1/auth/login/
+WARNING 2026-05-19 15:03:56,627 log 52842 130278473564288 Not Found: /api/.env
+WARNING 2026-05-19 15:03:59,994 log 52844 130278473564288 Not Found: /api/test
+WARNING 2026-05-19 15:10:10,888 log 52844 130278473564288 Not Found: /api/.env
+WARNING 2026-05-19 17:33:33,974 log 52844 130278473564288 Not Found: /api/.env
+WARNING 2026-05-20 03:25:11,523 log 52843 130278473564288 Unauthorized: /api/v1/auth/me/
+WARNING 2026-05-20 03:25:11,556 log 52842 130278473564288 Unauthorized: /api/v1/notifications/unread_count/
+WARNING 2026-05-20 03:25:11,614 log 52843 130278473564288 Unauthorized: /api/v1/auth/token/refresh/
+WARNING 2026-05-20 03:25:11,796 log 52843 130278473564288 Unauthorized: /api/v1/approvals/pending_count/
+WARNING 2026-05-20 03:25:11,798 log 52842 130278473564288 Unauthorized: /api/v1/timelines/approvals/pending_count/
+WARNING 2026-05-20 03:25:11,799 log 52844 130278473564288 Unauthorized: /api/v1/clients/
+WARNING 2026-05-20 03:34:47,229 log 52842 130278473564288 Unauthorized: /api/v1/resources/
+WARNING 2026-05-20 03:34:47,231 log 52844 130278473564288 Unauthorized: /api/v1/notifications/
+WARNING 2026-05-20 03:34:47,250 log 52844 130278473564288 Unauthorized: /api/v1/resources/time-entries/
+WARNING 2026-05-20 03:34:47,259 log 52843 130278473564288 Unauthorized: /api/v1/notifications/unread_count/
+WARNING 2026-05-20 03:34:47,263 log 52843 130278473564288 Unauthorized: /api/v1/projects/
+WARNING 2026-05-20 03:34:47,266 log 52843 130278473564288 Unauthorized: /api/v1/timelines/
+WARNING 2026-05-20 03:34:47,285 log 52844 130278473564288 Unauthorized: /api/v1/auth/token/refresh/
+WARNING 2026-05-20 03:34:47,292 log 52844 130278473564288 Unauthorized: /api/v1/auth/token/refresh/
+WARNING 2026-05-20 03:34:47,311 log 52843 130278473564288 Unauthorized: /api/v1/auth/token/refresh/
+WARNING 2026-05-20 03:34:47,312 log 52842 130278473564288 Unauthorized: /api/v1/auth/token/refresh/
+WARNING 2026-05-20 03:34:47,314 log 52844 130278473564288 Unauthorized: /api/v1/auth/token/refresh/
+WARNING 2026-05-20 04:08:10,537 log 52842 130278473564288 Unauthorized: /api/v1/projects/
+WARNING 2026-05-20 04:08:10,534 log 52844 130278473564288 Unauthorized: /api/v1/clients/
+WARNING 2026-05-20 04:08:10,539 log 52842 130278473564288 Unauthorized: /api/v1/resources/my_dashboard/
+WARNING 2026-05-20 04:08:10,535 log 52843 130278473564288 Unauthorized: /api/v1/resources/time-entries/
+WARNING 2026-05-20 04:08:10,603 log 52843 130278473564288 Unauthorized: /api/v1/resources/late-entry-approvals/
+WARNING 2026-05-20 04:08:15,840 log 52842 130278473564288 Unauthorized: /api/v1/auth/token/refresh/
+WARNING 2026-05-20 04:08:15,844 log 52843 130278473564288 Unauthorized: /api/v1/auth/token/refresh/
+WARNING 2026-05-20 04:08:15,858 log 52844 130278473564288 Unauthorized: /api/v1/auth/token/refresh/
+WARNING 2026-05-20 05:42:16,466 log 52843 130278473564288 Not Found: /api/.env
+WARNING 2026-05-20 05:46:04,674 log 52843 130278473564288 Unauthorized: /api/v1/resources/time-entries/
+WARNING 2026-05-20 05:46:04,676 log 52842 130278473564288 Unauthorized: /api/v1/resources/time-entries/
+WARNING 2026-05-20 05:46:04,679 log 52844 130278473564288 Unauthorized: /api/v1/resources/late-entry-approvals/
+WARNING 2026-05-20 05:46:04,747 log 52843 130278473564288 Unauthorized: /api/v1/auth/token/refresh/
+WARNING 2026-05-20 05:46:04,749 log 52844 130278473564288 Unauthorized: /api/v1/auth/token/refresh/
+WARNING 2026-05-20 05:48:18,449 log 52843 130278473564288 Bad Request: /api/v1/auth/login/
+WARNING 2026-05-20 05:48:28,914 log 52843 130278473564288 Bad Request: /api/v1/auth/login/
+WARNING 2026-05-20 06:07:23,028 log 52842 130278473564288 Not Found: /api/config
+WARNING 2026-05-20 06:07:23,039 log 52843 130278473564288 Not Found: /api/v1/config
+WARNING 2026-05-20 06:07:23,238 log 52842 130278473564288 Not Found: /api/v2/config
+WARNING 2026-05-20 06:07:23,238 log 52843 130278473564288 Not Found: /api/v1/admin/config
+WARNING 2026-05-20 06:07:23,256 log 52843 130278473564288 Not Found: /api/settings
+WARNING 2026-05-20 06:07:24,617 log 52844 130278473564288 Not Found: /api/v1/namespaces
+WARNING 2026-05-20 06:07:25,896 log 52843 130278473564288 Not Found: /api/v1
+WARNING 2026-05-20 07:06:22,547 log 52842 130278473564288 Bad Request: /api/v1/auth/login/
+WARNING 2026-05-20 07:12:33,368 log 52842 130278473564288 Bad Request: /api/v1/projects/
+WARNING 2026-05-20 08:57:16,756 log 52844 130278473564288 Bad Request: /api/v1/resources/time-entries/
+WARNING 2026-05-20 08:57:47,064 log 52843 130278473564288 Bad Request: /api/v1/resources/late-entry-approvals/
+WARNING 2026-05-20 08:57:56,261 log 52844 130278473564288 Bad Request: /api/v1/resources/late-entry-approvals/
+WARNING 2026-05-20 08:57:57,005 log 52844 130278473564288 Bad Request: /api/v1/resources/late-entry-approvals/
+WARNING 2026-05-20 08:58:01,656 log 52842 130278473564288 Bad Request: /api/v1/resources/late-entry-approvals/
+WARNING 2026-05-20 08:58:14,461 log 52843 130278473564288 Bad Request: /api/v1/resources/late-entry-approvals/
+WARNING 2026-05-20 08:58:16,099 log 52843 130278473564288 Bad Request: /api/v1/resources/late-entry-approvals/
+WARNING 2026-05-20 08:58:16,642 log 52843 130278473564288 Bad Request: /api/v1/resources/late-entry-approvals/
+WARNING 2026-05-20 08:58:16,874 log 52844 130278473564288 Bad Request: /api/v1/resources/late-entry-approvals/
+WARNING 2026-05-20 08:58:17,102 log 52843 130278473564288 Bad Request: /api/v1/resources/late-entry-approvals/
+WARNING 2026-05-20 08:58:17,284 log 52844 130278473564288 Bad Request: /api/v1/resources/late-entry-approvals/
+WARNING 2026-05-20 08:58:17,471 log 52844 130278473564288 Bad Request: /api/v1/resources/late-entry-approvals/
+WARNING 2026-05-20 08:58:17,613 log 52844 130278473564288 Bad Request: /api/v1/resources/late-entry-approvals/
+WARNING 2026-05-20 08:58:17,782 log 52844 130278473564288 Bad Request: /api/v1/resources/late-entry-approvals/
+WARNING 2026-05-20 08:58:17,956 log 52844 130278473564288 Bad Request: /api/v1/resources/late-entry-approvals/
+WARNING 2026-05-20 08:58:18,095 log 52844 130278473564288 Bad Request: /api/v1/resources/late-entry-approvals/
+WARNING 2026-05-20 08:58:18,258 log 52844 130278473564288 Bad Request: /api/v1/resources/late-entry-approvals/
+WARNING 2026-05-20 08:59:00,674 log 52844 130278473564288 Bad Request: /api/v1/resources/time-entries/
+WARNING 2026-05-20 08:59:27,985 log 52844 130278473564288 Bad Request: /api/v1/resources/late-entry-approvals/
+WARNING 2026-05-20 09:02:47,662 log 52843 130278473564288 Bad Request: /api/v1/resources/time-entries/
+WARNING 2026-05-20 09:02:54,400 log 52844 130278473564288 Bad Request: /api/v1/resources/late-entry-approvals/
+WARNING 2026-05-20 09:03:18,818 log 52842 130278473564288 Bad Request: /api/v1/resources/time-entries/
+WARNING 2026-05-20 09:03:59,605 log 52843 130278473564288 Bad Request: /api/v1/resources/time-entries/
+WARNING 2026-05-20 09:04:10,069 log 52843 130278473564288 Bad Request: /api/v1/resources/late-entry-approvals/
+WARNING 2026-05-20 09:04:13,709 log 52842 130278473564288 Bad Request: /api/v1/resources/late-entry-approvals/
+WARNING 2026-05-20 11:33:18,268 log 52843 130278473564288 Not Found: /api/settings
+WARNING 2026-05-20 11:33:22,167 log 52842 130278473564288 Not Found: /api/.env
+WARNING 2026-05-20 11:33:51,039 log 52842 130278473564288 Not Found: /api/v1/secrets
+WARNING 2026-05-20 11:33:51,351 log 52842 130278473564288 Not Found: /api/v1/credentials
+WARNING 2026-05-20 11:33:51,663 log 52843 130278473564288 Not Found: /api/credentials
+WARNING 2026-05-20 11:33:52,440 log 52844 130278473564288 Not Found: /api/v1/namespaces/default/secrets
+WARNING 2026-05-20 11:33:56,317 log 52844 130278473564288 Not Found: /api/.env
+WARNING 2026-05-20 11:33:57,715 log 52844 130278473564288 Not Found: /api/v1/.env
+WARNING 2026-05-20 11:33:57,873 log 52844 130278473564288 Not Found: /api/v2/.env
+WARNING 2026-05-20 11:33:58,340 log 52844 130278473564288 Not Found: /api/.environment
+WARNING 2026-05-20 11:34:04,232 log 52844 130278473564288 Not Found: /api/config/.env
+WARNING 2026-05-20 11:34:04,389 log 52844 130278473564288 Not Found: /api/core/.env
+WARNING 2026-05-20 11:34:04,546 log 52844 130278473564288 Not Found: /api/app/.env
+WARNING 2026-05-20 11:34:04,703 log 52844 130278473564288 Not Found: /api/test/.env
+WARNING 2026-05-20 11:34:04,860 log 52842 130278473564288 Not Found: /api/dev/.env
+WARNING 2026-05-20 11:34:05,017 log 52842 130278473564288 Not Found: /api/beta/.env
+WARNING 2026-05-20 11:34:16,535 log 52842 130278473564288 Not Found: /api/auth
+WARNING 2026-05-20 11:34:16,982 log 52843 130278473564288 Not Found: /api/auth/callback
+WARNING 2026-05-20 11:34:17,421 log 52842 130278473564288 Not Found: /api/auth/session
+WARNING 2026-05-20 14:53:20,357 log 52843 130278473564288 Not Found: /ws/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php
+WARNING 2026-05-20 14:53:21,033 log 52843 130278473564288 Not Found: /ws/ec/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php
+WARNING 2026-05-20 14:53:22,153 log 52843 130278473564288 Not Found: /api/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php
+WARNING 2026-05-20 16:40:47,297 log 52843 130278473564288 Unauthorized: /api/v1/projects/3/
+WARNING 2026-05-20 17:45:28,454 log 52842 130278473564288 Bad Request: /api/.env
+WARNING 2026-05-20 19:04:01,985 log 52844 130278473564288 Unauthorized: /api/v1/timelines/
+WARNING 2026-05-20 19:04:02,046 log 52842 130278473564288 Unauthorized: /api/v1/resources/time-entries/
+WARNING 2026-05-20 19:04:02,047 log 52844 130278473564288 Unauthorized: /api/v1/projects/
+WARNING 2026-05-20 19:04:02,048 log 52843 130278473564288 Unauthorized: /api/v1/notifications/
+WARNING 2026-05-20 19:04:02,052 log 52843 130278473564288 Unauthorized: /api/v1/clients/
+WARNING 2026-05-20 19:04:02,053 log 52842 130278473564288 Unauthorized: /api/v1/resources/
+WARNING 2026-05-20 19:04:02,055 log 52843 130278473564288 Unauthorized: /api/v1/resources/time-entries/
+WARNING 2026-05-20 19:04:02,104 log 52843 130278473564288 Unauthorized: /api/v1/approvals/
+WARNING 2026-05-20 19:04:02,170 log 52844 130278473564288 Unauthorized: /api/v1/auth/token/refresh/
+WARNING 2026-05-20 19:04:02,175 log 52844 130278473564288 Unauthorized: /api/v1/auth/token/refresh/
+WARNING 2026-05-20 19:04:02,181 log 52844 130278473564288 Unauthorized: /api/v1/auth/token/refresh/
+WARNING 2026-05-20 19:04:02,187 log 52844 130278473564288 Unauthorized: /api/v1/auth/token/refresh/
+WARNING 2026-05-20 19:04:02,189 log 52842 130278473564288 Unauthorized: /api/v1/auth/token/refresh/
+WARNING 2026-05-20 19:04:02,195 log 52843 130278473564288 Unauthorized: /api/v1/auth/token/refresh/
+WARNING 2026-05-20 19:04:02,309 log 52842 130278473564288 Unauthorized: /api/v1/auth/token/refresh/
+WARNING 2026-05-21 01:21:46,310 log 52843 130278473564288 Not Found: /ws/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php
+WARNING 2026-05-21 01:21:48,255 log 52844 130278473564288 Not Found: /ws/ec/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php
+WARNING 2026-05-21 01:21:51,983 log 52842 130278473564288 Not Found: /api/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php
+WARNING 2026-05-21 03:28:14,917 log 52844 130278473564288 Unauthorized: /api/v1/timelines/
+WARNING 2026-05-21 03:28:14,919 log 52844 130278473564288 Unauthorized: /api/v1/resources/time-entries/
+WARNING 2026-05-21 03:28:14,919 log 52842 130278473564288 Unauthorized: /api/v1/notifications/
+WARNING 2026-05-21 03:28:14,921 log 52844 130278473564288 Unauthorized: /api/v1/resources/
+WARNING 2026-05-21 03:28:14,922 log 52843 130278473564288 Unauthorized: /api/v1/projects/
+WARNING 2026-05-21 03:28:15,317 log 52843 130278473564288 Unauthorized: /api/v1/auth/token/refresh/
+WARNING 2026-05-21 03:28:15,318 log 52842 130278473564288 Unauthorized: /api/v1/auth/token/refresh/
+WARNING 2026-05-21 03:28:15,319 log 52844 130278473564288 Unauthorized: /api/v1/auth/token/refresh/
+WARNING 2026-05-21 03:44:49,447 log 52843 130278473564288 Not Found: /api/jsonws/invoke
+WARNING 2026-05-21 03:44:49,459 log 52843 130278473564288 Not Found: /api/profile
+WARNING 2026-05-21 03:44:51,342 log 52843 130278473564288 Not Found: /api/dependencies
+WARNING 2026-05-21 03:44:51,347 log 52842 130278473564288 Not Found: /api/debug
+WARNING 2026-05-21 03:44:52,844 log 52843 130278473564288 Unauthorized: /api/docs/
+WARNING 2026-05-21 04:01:10,714 log 52843 130278473564288 Bad Request: /api/v1/auth/login/
+WARNING 2026-05-21 04:01:22,495 log 52843 130278473564288 Bad Request: /api/v1/auth/login/
+WARNING 2026-05-21 04:04:17,191 log 52843 130278473564288 Unauthorized: /api/v1/projects/
+WARNING 2026-05-21 04:04:17,193 log 52842 130278473564288 Unauthorized: /api/v1/clients/
+WARNING 2026-05-21 04:04:17,587 log 52844 130278473564288 Unauthorized: /api/v1/auth/token/refresh/
+WARNING 2026-05-21 04:57:30,667 log 52843 130278473564288 Unauthorized: /api/v1/resources/time-entries/
+WARNING 2026-05-21 04:57:30,725 log 52843 130278473564288 Unauthorized: /api/v1/auth/token/refresh/
+WARNING 2026-05-21 05:18:57,125 log 52844 130278473564288 Bad Request: /api/v1/auth/change-password/
+WARNING 2026-05-21 05:47:50,982 log 52842 130278473564288 Bad Request: /api/v1/resources/time-entries/
+WARNING 2026-05-21 05:48:06,868 log 52842 130278473564288 Bad Request: /api/v1/resources/late-entry-approvals/
+WARNING 2026-05-21 05:49:14,975 log 52842 130278473564288 Bad Request: /api/v1/resources/late-entry-approvals/

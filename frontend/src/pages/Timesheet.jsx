@@ -1,10 +1,13 @@
 /**
  * Timesheet.jsx  — Updated
  * Changes:
- * 1. EntryForm: Client dropdown first → filtered Project dropdown below
+ * 1. EntryForm: Client dropdown shows ALL clients → filtered Project dropdown below
  * 2. Calendar: Red=absent(weekday), Green=6-9h, Yellow=>9h, White=<4h, dark-green=approved≥6h
  * 3. ApprovalView: full filter tabs (Pending / Approved / Rejected / All) with proper data
  * 4. Reminder scheduling: backend already runs the command; see send_timesheet_reminders.py
+ *
+ * FIX: normalize() now checks p['client__id'] (my_dashboard .values() format) before p.client
+ *      (projectsApi.list serializer format) so projects correctly map to their client in the dropdown.
  */
 import React, { useEffect, useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -13,7 +16,7 @@ import {
   ChevronRight, AlertTriangle, Download, Users, FolderKanban, Building2,
   Check, XCircle, FileText, Filter,
 } from 'lucide-react'
-import { resourcesApi, projectsApi } from '@/api/index.js'
+import { resourcesApi, projectsApi, clientsApi } from '@/api/index.js'
 import { useAuthStore } from '@/stores/authStore.js'
 import {
   Btn, Spinner, Badge, Card, Modal, EmptyState, Pagination,
@@ -48,28 +51,19 @@ function firstWeekday(year, month) {
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
-// ── Calendar color logic ──────────────────────────────────────────────
-// Red   = absent (weekday, past, no entry)
-// Green = 6–9 hours logged
-// Yellow = >9 hours logged
-// White/light = <4 hours logged
-// dark-green border = approved entry
-
 function getDayColor(entry, isWeekend, isFuture) {
   if (isFuture) return 'transparent'
   if (!entry) {
     if (isWeekend) return 'transparent'
-    return 'rgba(239,68,68,0.22)'   // Red – absent on weekday
+    return 'rgba(239,68,68,0.22)'
   }
   const h = Number(entry.hours || 0)
-  if (h > 9) return 'rgba(251,191,36,0.35)'    // Yellow – overloaded
-  if (h >= 6) return 'rgba(34,197,94,0.32)'     // Green – normal
-  if (h < 4) return 'rgba(248,250,252,0.15)'    // White/light – minimal
-  // 4–6h: mild yellow-green
+  if (h > 9) return 'rgba(251,191,36,0.35)'
+  if (h >= 6) return 'rgba(34,197,94,0.32)'
+  if (h < 4) return 'rgba(248,250,252,0.15)'
   return 'rgba(134,239,172,0.22)'
 }
 
-// ── CalendarHeatmap ───────────────────────────────────────────────────
 function CalendarHeatmap({ year, month, entryMap, selectedDate, onSelectDate, today: todayStr }) {
   const days = daysInMonth(year, month)
   const startWd = firstWeekday(year, month)
@@ -94,47 +88,23 @@ function CalendarHeatmap({ year, month, entryMap, selectedDate, onSelectDate, to
           const isFuture = ds > todayStr
           const dayOfWeek = (startWd + day - 1) % 7
           const isWeekend = dayOfWeek >= 5
-
           const bg = getDayColor(entry, isWeekend, isFuture)
           const isApproved = entry?.approved === true
-
           let borderColor = 'transparent'
           if (isSelected) borderColor = 'var(--accent)'
           else if (isToday) borderColor = 'var(--info)'
           else if (isApproved) borderColor = 'rgba(34,197,94,0.6)'
-
           const h = entry ? Number(entry.hours || 0) : 0
           let hoursColor = 'var(--text-3)'
           if (h > 9) hoursColor = 'var(--warning)'
           else if (h >= 6) hoursColor = '#22c55e'
           else if (h > 0) hoursColor = 'var(--text-2)'
-
           return (
             <button
               key={ds}
               onClick={() => !isFuture && onSelectDate(ds)}
-              title={
-                entry
-                  ? `${fmt(entry.hours)} • ${entry.approved ? 'Approved' : 'Pending'}`
-                  : isFuture ? 'Future' : isWeekend ? 'Weekend' : 'Absent'
-              }
-              style={{
-                aspectRatio: '1',
-                borderRadius: 6,
-                border: `2px solid ${borderColor}`,
-                background: bg,
-                cursor: isFuture ? 'default' : 'pointer',
-                fontSize: 12,
-                fontWeight: isToday ? 700 : 400,
-                color: isFuture ? 'var(--text-3)' : 'var(--text-1)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexDirection: 'column',
-                gap: 1,
-                transition: 'transform 0.1s',
-                opacity: isFuture ? 0.35 : 1,
-              }}
+              title={entry ? `${fmt(entry.hours)} • ${entry.approved ? 'Approved' : 'Pending'}` : isFuture ? 'Future' : isWeekend ? 'Weekend' : 'Absent'}
+              style={{ aspectRatio: '1', borderRadius: 6, border: `2px solid ${borderColor}`, background: bg, cursor: isFuture ? 'default' : 'pointer', fontSize: 12, fontWeight: isToday ? 700 : 400, color: isFuture ? 'var(--text-3)' : 'var(--text-1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 1, transition: 'transform 0.1s', opacity: isFuture ? 0.35 : 1 }}
               onMouseEnter={e => { if (!isFuture) e.currentTarget.style.transform = 'scale(1.08)' }}
               onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
             >
@@ -144,7 +114,6 @@ function CalendarHeatmap({ year, month, entryMap, selectedDate, onSelectDate, to
           )
         })}
       </div>
-      {/* Legend */}
       <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
         {[
           { color: 'rgba(239,68,68,0.22)', label: 'Absent' },
@@ -162,15 +131,16 @@ function CalendarHeatmap({ year, month, entryMap, selectedDate, onSelectDate, to
   )
 }
 
-// ── EntryForm modal — Client first, then filtered Project ─────────────
-function EntryForm({ date, projects, lateApprovals = [], entry, onClose, onSaved }) {
+// ── EntryForm modal — All Clients first, then filtered Project ────────
+function EntryForm({ date, projects, allClients = [], lateApprovals = [], entry, onClose, onSaved }) {
   const qc = useQueryClient()
 
-  // Build client list from projects
+  // Build clientMap from projects (for mapping projects to clients)
   const clientMap = useMemo(() => {
     const m = {}
     projects.forEach(p => {
-      const cid = p.client_id || p.client || 'no_client'
+      // client_id is already normalized to string in mergedProjects
+      const cid = String(p.client_id || p.client || 'no_client')
       const cname = p.client_name || p['client__name'] || 'No Client'
       if (!m[cid]) m[cid] = { id: cid, name: cname, projects: [] }
       m[cid].projects.push(p)
@@ -178,16 +148,28 @@ function EntryForm({ date, projects, lateApprovals = [], entry, onClose, onSaved
     return m
   }, [projects])
 
-  const clientList = useMemo(() => Object.values(clientMap).sort((a, b) => a.name.localeCompare(b.name)), [clientMap])
+  // Use allClients for the dropdown so ALL clients show, not just ones with assigned projects
+  const clientList = useMemo(() => {
+    if (allClients.length > 0) {
+      return allClients
+        .map(c => ({
+          id: String(c.id),
+          name: c.name,
+          projects: clientMap[String(c.id)]?.projects || [],
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name))
+    }
+    // Fallback: derive from projects
+    return Object.values(clientMap).sort((a, b) => a.name.localeCompare(b.name))
+  }, [allClients, clientMap])
 
-  // Derive initial client from entry's project
   const initialClientId = useMemo(() => {
     if (!entry) return ''
     const pid = entry?.project?.id || entry?.project || entry?.project_id || ''
     if (!pid) return ''
     const proj = projects.find(p => String(p.id) === String(pid))
     if (!proj) return ''
-    return proj.client_id || proj.client || 'no_client'
+    return String(proj.client_id || proj.client || 'no_client')
   }, [entry, projects])
 
   const [clientId, setClientId] = useState(initialClientId)
@@ -200,13 +182,12 @@ function EntryForm({ date, projects, lateApprovals = [], entry, onClose, onSaved
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // Projects filtered by selected client
   const filteredProjects = useMemo(() => {
     if (!clientId) return []
-    return clientMap[clientId]?.projects || []
+    // clientId is always a string (from select value), clientMap keys are strings
+    return clientMap[String(clientId)]?.projects || []
   }, [clientId, clientMap])
 
-  // Reset project when client changes
   useEffect(() => {
     if (clientId && !filteredProjects.find(p => String(p.id) === String(projectId))) {
       setProjectId('')
@@ -266,10 +247,10 @@ function EntryForm({ date, projects, lateApprovals = [], entry, onClose, onSaved
           </div>
         )}
 
-        {/* Step 1: Client */}
+        {/* Step 1: Client — ALL clients */}
         <div>
           <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', display: 'block', marginBottom: 6 }}>
-            Client *
+            Client * <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 400 }}>({clientList.length} available)</span>
           </label>
           <select value={clientId} onChange={e => { setClientId(e.target.value); setProjectId('') }} style={SEL}>
             <option value="">Select client...</option>
@@ -279,7 +260,7 @@ function EntryForm({ date, projects, lateApprovals = [], entry, onClose, onSaved
           </select>
         </div>
 
-        {/* Step 2: Project — filtered by client */}
+        {/* Step 2: Project — filtered by selected client */}
         <div>
           <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', display: 'block', marginBottom: 6 }}>
             Project * {clientId && <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 400 }}>({filteredProjects.length} available)</span>}
@@ -290,7 +271,7 @@ function EntryForm({ date, projects, lateApprovals = [], entry, onClose, onSaved
             disabled={!clientId}
             style={{ ...SEL, opacity: !clientId ? 0.5 : 1, cursor: !clientId ? 'not-allowed' : 'pointer' }}
           >
-            <option value="">{clientId ? 'Select project...' : 'Select a client first'}</option>
+            <option value="">{clientId ? (filteredProjects.length === 0 ? 'No projects for this client' : 'Select project...') : 'Select a client first'}</option>
             {filteredProjects.map(p => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
@@ -376,6 +357,20 @@ function ResourceTimesheetView({ user }) {
     staleTime: 60_000,
   })
 
+  // Fetch ALL clients independently so the dropdown is not limited to assigned projects
+  const { data: allClientsData } = useQuery({
+    queryKey: ['all-clients-timesheet'],
+    queryFn: () => clientsApi.list({ page_size: 500 }).then(r => r.data.results || r.data || []),
+    staleTime: 120_000,
+  })
+
+  // Fetch ALL active projects so any client's projects are available
+  const { data: allProjectsData } = useQuery({
+    queryKey: ['all-projects-timesheet'],
+    queryFn: () => projectsApi.list({ page_size: 500, status: 'in_progress' }).then(r => r.data.results || r.data || []),
+    staleTime: 60_000,
+  })
+
   const { data: lateApprovals } = useQuery({
     queryKey: ['my-late-approvals'],
     queryFn: () => resourcesApi.lateEntryApprovals({ page_size: 100 }).then(r => r.data.results || r.data || []),
@@ -383,8 +378,31 @@ function ResourceTimesheetView({ user }) {
   })
 
   const entries = entriesData || []
-  const projects = myDash?.projects || []
+  const myDashProjects = myDash?.projects || []
   const stats = myDash?.stats || {}
+  const allClients = allClientsData || []
+
+  // Merge myDash projects (have remaining_hours) with allProjects for full coverage.
+  // FIX: normalize() now checks p['client__id'] (Django .values() double-underscore key returned
+  // by my_dashboard) BEFORE p.client (integer FK returned by ProjectListSerializer).
+  // Previously only p.client_id || p.client was checked, so dashboard projects always resolved
+  // to 'no_client' because my_dashboard uses client__id, not client_id or client.
+  const mergedProjects = useMemo(() => {
+    const allRaw = allProjectsData || []
+    const myIds = new Set(myDashProjects.map(p => String(p.id)))
+    const normalize = p => ({
+      ...p,
+      // ✅ FIX: p['client__id'] covers my_dashboard .values() format
+      //         p.client covers projectsApi.list serializer format
+      //         Using ?? (nullish coalescing) to avoid skipping a valid id of 0
+      client_id: String(p.client_id ?? p['client__id'] ?? p.client ?? 'no_client'),
+      client_name: p.client_name || p['client__name'] || '',
+    })
+    return [
+      ...myDashProjects.map(normalize),
+      ...allRaw.filter(p => !myIds.has(String(p.id))).map(normalize),
+    ]
+  }, [myDashProjects, allProjectsData])
 
   const entryMap = useMemo(() => {
     const m = {}
@@ -435,7 +453,7 @@ function ResourceTimesheetView({ user }) {
           { label: 'Total Hours', value: fmt(stats.total_hours), color: 'var(--accent)' },
           { label: 'Approved', value: fmt(stats.approved_hours), color: 'var(--success)' },
           { label: 'Pending', value: fmt(stats.pending_hours), color: 'var(--warning)' },
-          { label: 'Active Projects', value: stats.active_project_count ?? projects.length, color: 'var(--info)' },
+          { label: 'Active Projects', value: stats.active_project_count ?? myDashProjects.length, color: 'var(--info)' },
         ].map(s => (
           <div key={s.label} style={{ background: 'var(--bg-2)', borderRadius: 10, padding: '14px 16px', border: '1px solid var(--border)' }}>
             <div style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 600, marginBottom: 4 }}>{s.label}</div>
@@ -511,11 +529,11 @@ function ResourceTimesheetView({ user }) {
       {/* My Projects */}
       <div style={{ background: 'var(--bg-2)', borderRadius: 12, padding: 20, border: '1px solid var(--border)' }}>
         <h3 style={{ margin: '0 0 14px', fontSize: 15, fontWeight: 700, color: 'var(--text-0)' }}>Available Projects</h3>
-        {projects.length === 0 ? (
+        {myDashProjects.length === 0 ? (
           <p style={{ color: 'var(--text-3)', fontSize: 13 }}>No active projects available.</p>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px,1fr))', gap: 10 }}>
-            {projects.map(p => (
+            {myDashProjects.map(p => (
               <div key={p.id} style={{ background: 'var(--bg-3)', borderRadius: 8, padding: '12px 14px', border: '1px solid var(--border)' }}>
                 <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-0)', marginBottom: 2 }}>{p.name}</div>
                 <div style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 6 }}>{p['client__name'] || p.client_name || ''}</div>
@@ -561,15 +579,16 @@ function ResourceTimesheetView({ user }) {
       {showForm && (
         <EntryForm
           date={selectedDate}
-          projects={projects.map(p => ({
+          projects={mergedProjects.map(p => ({
             id: p.id,
             name: p.name,
             client_id: p.client_id || p.client || 'no_client',
-            client_name: p.client_name || p['client__name'],
+            client_name: p.client_name || p['client__name'] || '',
             remaining_hours: p.remaining_hours,
             hours: p.hours,
             progress: p.progress,
           }))}
+          allClients={allClients}
           lateApprovals={lateApprovals || []}
           entry={editEntry}
           onClose={() => { setShowForm(false); setEditEntry(null) }}
@@ -583,7 +602,7 @@ function ResourceTimesheetView({ user }) {
   )
 }
 
-// ── Manager / Admin approval view — with proper filter tabs ───────────
+// ── Manager / Admin approval view ─────────────────────────────────────
 function ApprovalView({ user }) {
   const qc = useQueryClient()
   const canResolveLate = user?.role === 'admin' || user?.role === 'manager'
@@ -593,7 +612,6 @@ function ApprovalView({ user }) {
   const [adminNotes, setAdminNotes] = useState({})
   const [successMsg, setSuccessMsg] = useState('')
 
-  // All time entries filtered by status
   const { data: allEntriesData, isLoading: allLoading } = useQuery({
     queryKey: ['timesheet-entries-filter', statusFilter, page],
     queryFn: () => {
@@ -624,7 +642,6 @@ function ApprovalView({ user }) {
   const total = allEntriesData?.count ?? entries.length
   const lateRequests = lateData || []
 
-  // Count for badge on Pending tab
   const { data: pendingCountData } = useQuery({
     queryKey: ['pending-timesheet-count'],
     queryFn: () => resourcesApi.timeEntries({ approved: 'false', page_size: 1 }).then(r => r.data.count ?? 0),
@@ -678,35 +695,20 @@ function ApprovalView({ user }) {
     { key: 'rejected', label: 'Rejected' },
     { key: 'all', label: 'All' },
   ]
-
   const tabColor = { pending: 'var(--warning)', approved: 'var(--success)', rejected: 'var(--danger)', all: 'var(--text-2)' }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      {/* Filter tabs */}
       <div style={{ display: 'flex', gap: 4, background: 'var(--bg-2)', borderRadius: 10, padding: 4, width: 'fit-content', border: '1px solid var(--border)' }}>
         {filterTabs.map(t => (
-          <button
-            key={t.key}
-            onClick={() => { setStatusFilter(t.key); setPage(1) }}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '7px 14px', borderRadius: 7, border: 'none', cursor: 'pointer',
-              fontWeight: 600, fontSize: 13,
-              background: statusFilter === t.key ? 'var(--bg-4)' : 'transparent',
-              color: statusFilter === t.key ? tabColor[t.key] : 'var(--text-3)',
-              transition: 'all 0.15s',
-            }}
-          >
+          <button key={t.key} onClick={() => { setStatusFilter(t.key); setPage(1) }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 7, border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 13, background: statusFilter === t.key ? 'var(--bg-4)' : 'transparent', color: statusFilter === t.key ? tabColor[t.key] : 'var(--text-3)', transition: 'all 0.15s' }}>
             {t.label}
-            {t.count > 0 && (
-              <span style={{ background: 'var(--warning)', color: '#000', borderRadius: 20, fontSize: 10, fontWeight: 800, padding: '1px 6px', minWidth: 18, textAlign: 'center' }}>{t.count}</span>
-            )}
+            {t.count > 0 && <span style={{ background: 'var(--warning)', color: '#000', borderRadius: 20, fontSize: 10, fontWeight: 800, padding: '1px 6px', minWidth: 18, textAlign: 'center' }}>{t.count}</span>}
           </button>
         ))}
       </div>
 
-      {/* Time entries list */}
       <div style={{ background: 'var(--bg-2)', borderRadius: 12, padding: 20, border: '1px solid var(--border)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>
@@ -723,26 +725,16 @@ function ApprovalView({ user }) {
             : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {entries.map(e => (
-                  <div key={e.id} style={{
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    background: 'var(--bg-3)', borderRadius: 8, padding: '12px 16px', flexWrap: 'wrap',
-                    borderLeft: `3px solid ${e.approved ? 'var(--success)' : 'var(--warning)'}`,
-                  }}>
+                  <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg-3)', borderRadius: 8, padding: '12px 16px', flexWrap: 'wrap', borderLeft: `3px solid ${e.approved ? 'var(--success)' : 'var(--warning)'}` }}>
                     <div style={{ flex: 1, minWidth: 160 }}>
                       <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-0)' }}>{e.resource_name || e.resource?.user?.name || '—'}</div>
-                      <div style={{ fontSize: 12, color: 'var(--text-3)' }}>
-                        {e.project_name || e.project?.name} • {e.date}
-                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--text-3)' }}>{e.project_name || e.project?.name} • {e.date}</div>
                       {e.project_client_name && <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>Client: {e.project_client_name}</div>}
                       {e.description && <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>{e.description}</div>}
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                       <span style={{ fontWeight: 700, fontSize: 16, color: 'var(--accent)' }}>{fmt(e.hours)}</span>
-                      <span style={{
-                        fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20,
-                        background: e.approved ? 'rgba(34,197,94,0.12)' : 'rgba(251,191,36,0.12)',
-                        color: e.approved ? 'var(--success)' : 'var(--warning)',
-                      }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: e.approved ? 'rgba(34,197,94,0.12)' : 'rgba(251,191,36,0.12)', color: e.approved ? 'var(--success)' : 'var(--warning)' }}>
                         {e.approved ? '✓ Approved' : 'Pending'}
                       </span>
                     </div>
@@ -754,17 +746,13 @@ function ApprovalView({ user }) {
               </div>
             )
         }
-        {totalPages > 1 && (
-          <Pagination page={page} totalPages={totalPages} total={total} pageSize={25} onPageChange={setPage} />
-        )}
+        {totalPages > 1 && <Pagination page={page} totalPages={totalPages} total={total} pageSize={25} onPageChange={setPage} />}
       </div>
 
-      {/* Late entry requests — shown on pending/all tabs */}
       {(statusFilter === 'pending' || statusFilter === 'all') && lateRequests.length > 0 && (
         <div style={{ background: 'var(--bg-2)', borderRadius: 12, padding: 20, border: '1px solid var(--border)' }}>
           <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700 }}>
-            Late Entry Unlock Requests
-            <span style={{ fontWeight: 400, fontSize: 14, color: 'var(--warning)', marginLeft: 6 }}>({lateRequests.length})</span>
+            Late Entry Unlock Requests <span style={{ fontWeight: 400, fontSize: 14, color: 'var(--warning)', marginLeft: 6 }}>({lateRequests.length})</span>
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {lateRequests.map(r => (
@@ -774,18 +762,11 @@ function ApprovalView({ user }) {
                     <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-0)' }}>{r.resource?.user?.name || r.resource_name || '—'}</div>
                     <div style={{ fontSize: 12, color: 'var(--text-3)' }}>Requesting late entry for <strong>{r.date}</strong></div>
                     {r.reason && <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 4 }}>Reason: {r.reason}</div>}
-                    <span style={{ fontSize: 11, fontWeight: 600, marginTop: 6, display: 'inline-block', padding: '2px 8px', borderRadius: 20, background: r.status === 'approved' ? 'rgba(34,197,94,0.12)' : r.status === 'rejected' ? 'rgba(239,68,68,0.12)' : 'rgba(251,191,36,0.12)', color: r.status === 'approved' ? 'var(--success)' : r.status === 'rejected' ? 'var(--danger)' : 'var(--warning)' }}>
-                      {r.status}
-                    </span>
+                    <span style={{ fontSize: 11, fontWeight: 600, marginTop: 6, display: 'inline-block', padding: '2px 8px', borderRadius: 20, background: r.status === 'approved' ? 'rgba(34,197,94,0.12)' : r.status === 'rejected' ? 'rgba(239,68,68,0.12)' : 'rgba(251,191,36,0.12)', color: r.status === 'approved' ? 'var(--success)' : r.status === 'rejected' ? 'var(--danger)' : 'var(--warning)' }}>{r.status}</span>
                   </div>
                   {r.status === 'pending' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
-                      <input
-                        placeholder="Manager note (optional)"
-                        value={adminNotes[r.id] || ''}
-                        onChange={e => setAdminNotes(n => ({ ...n, [r.id]: e.target.value }))}
-                        style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text-1)', fontSize: 13, width: 200 }}
-                      />
+                      <input placeholder="Manager note (optional)" value={adminNotes[r.id] || ''} onChange={e => setAdminNotes(n => ({ ...n, [r.id]: e.target.value }))} style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text-1)', fontSize: 13, width: 200 }} />
                       <div style={{ display: 'flex', gap: 6 }}>
                         <Btn size="sm" onClick={() => approveLate(r.id)} icon={<Check size={13} />}>Unlock</Btn>
                         <Btn size="sm" variant="ghost" onClick={() => rejectLate(r.id)} style={{ color: 'var(--danger)' }} icon={<X size={13} />}>Reject</Btn>
@@ -831,9 +812,7 @@ function ManagerTeamView({ user }) {
                 <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
                   <span style={{ fontSize: 11, color: 'var(--text-2)' }}>Active: {r.active_project_count ?? 0} projects</span>
                 </div>
-                <div style={{ fontSize: 11, marginTop: 4, color: 'var(--warning)' }}>
-                  Logged: {fmt(r.total_hours_value || r.total_hours || 0)}
-                </div>
+                <div style={{ fontSize: 11, marginTop: 4, color: 'var(--warning)' }}>Logged: {fmt(r.total_hours_value || r.total_hours || 0)}</div>
               </div>
             ))}
           </div>
@@ -870,10 +849,7 @@ export default function TimesheetPage() {
 
   useEffect(() => {
     const requestedTab = new URLSearchParams(window.location.search).get('tab')
-    if (requestedTab && allowedTabIds.includes(requestedTab)) {
-      setTabState(requestedTab)
-      return
-    }
+    if (requestedTab && allowedTabIds.includes(requestedTab)) { setTabState(requestedTab); return }
     if (requestedTab && !allowedTabIds.includes(requestedTab)) {
       const url = new URL(window.location.href)
       url.searchParams.delete('tab')
@@ -890,8 +866,6 @@ export default function TimesheetPage() {
           {isResource ? 'Log your daily work hours and track your timesheet.' : 'Review and approve resource time entries.'}
         </p>
       </div>
-
-      {/* Tabs */}
       {tabs.length > 1 && (
         <div style={{ display: 'flex', gap: 4, background: 'var(--bg-2)', borderRadius: 10, padding: 4, width: 'fit-content', border: '1px solid var(--border)' }}>
           {tabs.map(t => {
@@ -904,7 +878,6 @@ export default function TimesheetPage() {
           })}
         </div>
       )}
-
       {activeTab === 'mine'      && <ResourceTimesheetView user={user} />}
       {activeTab === 'approvals' && (isManager || isAdmin) && <ApprovalView user={user} />}
       {activeTab === 'team'      && (isManager || isAdmin) && <ManagerTeamView user={user} />}

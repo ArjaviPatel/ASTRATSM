@@ -212,6 +212,9 @@ class TimesheetLateEntryApprovalSerializer(serializers.ModelSerializer):
             'resolved_by', 'resolved_by_name',
             'resolved_at', 'created_at',
         ]
+        extra_kwargs = {
+            'resource': {'required': False},
+        }
 
     def validate(self, attrs):
         request = self.context.get('request')

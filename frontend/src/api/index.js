@@ -109,6 +109,7 @@ export const resourcesApi = {
   update: (id, data) => api.patch(`/resources/${id}/`, data),
   delete: (id) => api.delete(`/resources/${id}/`),
   export: () => api.get('/resources/export/', { responseType: 'blob' }),
+  exportTimeEntries: (params) => api.get('/resources/time-entries/export/', { params, responseType: 'blob' }),
   timesheetReport: (id) => api.get(`/resources/${id}/timesheet_report/`, { responseType: 'blob' }),
   setAvailability: (id, data) => api.patch(`/resources/${id}/set_availability/`, data),
   myDashboard: () => api.get('/resources/my_dashboard/'),
@@ -117,10 +118,12 @@ export const resourcesApi = {
   updateTimeEntry: (id, data) => api.patch(`/resources/time-entries/${id}/`, data),
   deleteTimeEntry: (id) => api.delete(`/resources/time-entries/${id}/`),
   approveTimeEntry: (id) => api.patch(`/resources/time-entries/${id}/approve/`),
+  rejectTimeEntry: (id, data) => api.patch(`/resources/time-entries/${id}/reject/`, data || {}),
   lateEntryApprovals: (params) => api.get('/resources/late-entry-approvals/', { params }),
   requestLateEntryApproval: (data) => api.post('/resources/late-entry-approvals/', data),
   approveLateEntryApproval: (id, data) => api.post(`/resources/late-entry-approvals/${id}/approve/`, data || {}),
   rejectLateEntryApproval: (id, data) => api.post(`/resources/late-entry-approvals/${id}/reject/`, data || {}),
+  dailyReport: (date) => api.get('/resources/daily_report/', { params: { date } }),
 }
 
 // ── Chat ──────────────────────────────────────────────────────────────

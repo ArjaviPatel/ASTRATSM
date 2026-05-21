@@ -1,8 +1,8 @@
-import React, { useCallback } from 'react'
-import { useQueries, useQueryClient } from '@tanstack/react-query'
+import React, { useCallback, useState } from 'react'
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  Activity, AlertTriangle, Bell, BriefcaseBusiness, CheckCircle2, Clock3,
-  FolderKanban, Gauge, RefreshCw, ShieldCheck, TrendingUp, Users, Zap,
+  Activity, AlertTriangle, Bell, BriefcaseBusiness, Calendar, CheckCircle2, Clock3,
+  Download, FolderKanban, Gauge, RefreshCw, ShieldCheck, TrendingUp, Users, UserX, Zap,
 } from 'lucide-react'
 import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend,
@@ -14,6 +14,7 @@ import {
 } from '@/api/index.js'
 import { Badge, Card, ProgressBar, StatCard } from '@/components/ui/index.jsx'
 import { useAuthStore } from '@/stores/authStore.js'
+import { downloadBlob } from '@/utils/index.js'
 
 // ── Constants ────────────────────────────────────────────────────────
 const PIE_COLORS = ['#237227', '#3f9f5f', '#6d8fa0', '#d97706', '#ef4444']
@@ -228,10 +229,34 @@ export default function DashboardPage() {
   const role    = user?.role || 'resource'
   const userReady = !!user
   const qc      = useQueryClient()
+  const isManagerOrAdmin = role === 'admin' || role === 'manager'
+
+  const todayStr = new Date().toISOString().split('T')[0]
+  const [selectedDate, setSelectedDate] = useState(todayStr)
+  const [exportingTs, setExportingTs] = useState(false)
 
   const refresh = useCallback(() => {
     qc.invalidateQueries({ queryKey: ['dashboard'] })
+    qc.invalidateQueries({ queryKey: ['daily-report'] })
   }, [qc])
+
+  // Daily report query for managers/admins
+  const { data: dailyReport, isLoading: dailyLoading, refetch: refetchDaily } = useQuery({
+    queryKey: ['daily-report', selectedDate],
+    queryFn: () => resourcesApi.dailyReport(selectedDate).then(r => r.data),
+    enabled: userReady && isManagerOrAdmin,
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+  })
+
+  async function exportAllTimesheets() {
+    setExportingTs(true)
+    try {
+      const res = await resourcesApi.exportTimeEntries({})
+      downloadBlob(res, 'all_timesheets.xlsx')
+    } catch (e) { console.error(e) }
+    finally { setExportingTs(false) }
+  }
 
   const results = useQueries({
     queries: [
@@ -652,6 +677,131 @@ export default function DashboardPage() {
           </Card>
         )}
       </div>
+
+      {/* ── Daily Report — Manager/Admin only ── */}
+      {isManagerOrAdmin && (
+        <Card className="animate-rise-in" style={{ border: '1px solid rgba(35,114,39,0.2)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 'var(--sp-4)' }}>
+            <div>
+              <h3 style={{ fontSize: '0.95rem', fontWeight: 800, letterSpacing: '-0.01em' }}>Daily Timesheet Report</h3>
+              <p style={{ fontSize: '13px', color: 'var(--text-3)', marginTop: 3 }}>Who submitted timesheets and project hour tracking</p>
+            </div>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', padding: '7px 12px' }}>
+                <Calendar size={14} style={{ color: 'var(--text-3)' }} />
+                <input
+                  type="date"
+                  value={selectedDate}
+                  max={todayStr}
+                  onChange={e => setSelectedDate(e.target.value)}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-0)', fontSize: '14px', outline: 'none', cursor: 'pointer' }}
+                />
+              </div>
+              <button
+                onClick={exportAllTimesheets}
+                disabled={exportingTs}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(35,114,39,0.12)', border: '1px solid rgba(35,114,39,0.3)', borderRadius: 'var(--r-md)', padding: '7px 14px', cursor: exportingTs ? 'wait' : 'pointer', color: 'var(--accent)', fontSize: '13px', fontWeight: 600, opacity: exportingTs ? 0.7 : 1, transition: 'all var(--t-fast)' }}
+                onMouseEnter={e => e.currentTarget.style.background='rgba(35,114,39,0.22)'}
+                onMouseLeave={e => e.currentTarget.style.background='rgba(35,114,39,0.12)'}
+              >
+                <Download size={14} /> {exportingTs ? 'Exporting…' : 'Export All Timesheets'}
+              </button>
+            </div>
+          </div>
+
+          {dailyLoading ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
+              {[1,2,3].map(i => <div key={i} className="skeleton" style={{ height: 120, borderRadius: 'var(--r-lg)' }} />)}
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 'var(--sp-4)', alignItems: 'start' }}>
+
+              {/* Submitted */}
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <CheckCircle2 size={15} style={{ color: 'var(--success)' }} />
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--success)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    Submitted ({dailyReport?.submitted?.length ?? 0})
+                  </span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 300, overflowY: 'auto' }}>
+                  {(dailyReport?.submitted || []).length === 0 ? (
+                    <div style={{ fontSize: '14px', color: 'var(--text-3)', padding: '10px 0' }}>No submissions on this date.</div>
+                  ) : (dailyReport?.submitted || []).map(r => (
+                    <div key={r.id} style={{ padding: '9px 12px', borderRadius: 'var(--r-md)', background: 'rgba(35,114,39,0.07)', border: '1px solid rgba(35,114,39,0.18)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                      <div>
+                        <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-0)' }}>{r.name}</div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-3)', marginTop: 2 }}>{r.resource_id || r.email}</div>
+                      </div>
+                      <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--success)', flexShrink: 0 }}>{Number(r.hours_submitted || 0).toFixed(1)}h</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Not Submitted */}
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <UserX size={15} style={{ color: 'var(--danger)' }} />
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--danger)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    Not Submitted ({dailyReport?.not_submitted?.length ?? 0})
+                  </span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 300, overflowY: 'auto' }}>
+                  {(dailyReport?.not_submitted || []).length === 0 ? (
+                    <div style={{ fontSize: '14px', color: 'var(--text-3)', padding: '10px 0' }}>All resources submitted.</div>
+                  ) : (dailyReport?.not_submitted || []).map(r => (
+                    <div key={r.id} style={{ padding: '9px 12px', borderRadius: 'var(--r-md)', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.18)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                      <div>
+                        <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-0)' }}>{r.name}</div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-3)', marginTop: 2 }}>{r.resource_id || r.email}</div>
+                      </div>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--danger)', padding: '3px 8px', background: 'rgba(239,68,68,0.1)', borderRadius: 20 }}>Missing</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Project hours tracking */}
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <FolderKanban size={15} style={{ color: 'var(--info)' }} />
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--info)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    Project Hours
+                  </span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 300, overflowY: 'auto' }}>
+                  {(dailyReport?.project_hours || []).length === 0 ? (
+                    <div style={{ fontSize: '14px', color: 'var(--text-3)', padding: '10px 0' }}>No project data.</div>
+                  ) : (dailyReport?.project_hours || []).map(p => {
+                    const alloc = Number(p.hours_allocated || 0)
+                    const consumed = Number(p.hours_consumed || 0)
+                    const pending = Number(p.hours_pending || 0)
+                    const remaining = Number(p.hours_remaining || 0)
+                    const usedPct = alloc > 0 ? Math.min(Math.round(((consumed + pending) / alloc) * 100), 100) : 0
+                    return (
+                      <div key={p.id} style={{ padding: '10px 12px', borderRadius: 'var(--r-md)', background: 'var(--bg-2)', border: '1px solid var(--border)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                          <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-0)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                          <div style={{ fontSize: '11px', fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: remaining <= 0 ? 'rgba(239,68,68,0.1)' : 'rgba(35,114,39,0.1)', color: remaining <= 0 ? 'var(--danger)' : 'var(--success)', flexShrink: 0 }}>
+                            {remaining <= 0 ? 'Exhausted' : `${remaining.toFixed(0)}h left`}
+                          </div>
+                        </div>
+                        <ProgressBar value={usedPct} color={remaining <= 0 ? 'var(--danger)' : consumed / Math.max(alloc, 1) > 0.8 ? 'var(--warning)' : 'var(--accent)'} showLabel />
+                        <div style={{ display: 'flex', gap: 12, marginTop: 6, fontSize: '11px', color: 'var(--text-3)' }}>
+                          <span>Allocated: <b style={{ color: 'var(--text-0)' }}>{alloc.toFixed(0)}h</b></span>
+                          <span>Approved: <b style={{ color: 'var(--success)' }}>{consumed.toFixed(1)}h</b></span>
+                          <span>Pending: <b style={{ color: 'var(--warning)' }}>{pending.toFixed(1)}h</b></span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+        </Card>
+      )}
 
     </div>
   )

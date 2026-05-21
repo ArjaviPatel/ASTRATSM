@@ -157,6 +157,21 @@ export default function ApprovalsPage() {
     finally { setActionLoading(null) }
   }
 
+  async function handleTimesheetRejection(req) {
+    const entryId = req._entryId || req.id?.toString().replace('timesheet-', '')
+    if (!entryId) { setError('Cannot find time entry ID.'); return }
+    setActionLoading(req._uid + '_reject'); setError('')
+    try {
+      const note = adminNote[req._uid] || ''
+      await resourcesApi.rejectTimeEntry(entryId, { admin_note: note })
+      qc.invalidateQueries({ queryKey: ['pending-time-entries'] })
+      qc.invalidateQueries({ queryKey: ['approval-count'] })
+      setExpanded(null)
+      flash('Time entry rejected — resource has been notified.')
+    } catch (err) { setError(extractError(err)) }
+    finally { setActionLoading(null) }
+  }
+
   async function handleLateEntryDecision(req, approved) {
     setActionLoading(`${req._uid}_${approved ? 'approve' : 'reject'}`); setError('')
     try {
@@ -195,10 +210,14 @@ export default function ApprovalsPage() {
     finally { setActionLoading(null) }
   }
 
-  async function handleReject(id, kind) {
+  async function handleReject(id, kind, req) {
     const uid = `${kind}-${id}`
     setActionLoading(uid + '_reject'); setError('')
     try {
+      if (kind === 'timesheet') {
+        await handleTimesheetRejection(req || { id, _entryId: id?.toString().replace('timesheet-', ''), _uid: uid })
+        return
+      }
       if (kind === 'late_entry') {
         await handleLateEntryDecision({ id, _uid: `late-entry-${id}` }, false)
         return
@@ -433,18 +452,32 @@ export default function ApprovalsPage() {
                       </button>
                     )}
 
-                    {/* Quick approve button inline for timesheet rows — manager only */}
+                    {/* Quick approve + reject buttons inline for timesheet rows — manager only */}
                     {canReviewTimesheets && (req._kind === 'timesheet' || req._kind === 'late_entry') && req.status === 'pending' && !isApplying && !isOpen && (
-                      <button
-                        onClick={e => { e.stopPropagation(); handleApprove(req.id, req._kind, req) }}
-                        disabled={!!actionLoading}
-                        style={{ display:'flex', alignItems:'center', gap:5, background:'rgba(74,222,128,0.12)', border:'1px solid rgba(74,222,128,0.4)', borderRadius:'var(--r-md)', padding:'7px 14px', cursor:'pointer', color:'var(--success)', fontSize:'12px', fontWeight:600, flexShrink:0, transition:'all var(--t-fast)', whiteSpace:'nowrap', opacity:actionLoading?0.6:1 }}
-                        onMouseEnter={e => e.currentTarget.style.background='rgba(74,222,128,0.22)'}
-                        onMouseLeave={e => e.currentTarget.style.background='rgba(74,222,128,0.12)'}
-                      >
-                        <CheckCircle size={13} />
-                        {actionLoading === req._uid + '_approve' ? 'Approving…' : req._kind === 'late_entry' ? 'Unlock' : 'Approve'}
-                      </button>
+                      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                        {req._kind === 'timesheet' && (
+                          <button
+                            onClick={e => { e.stopPropagation(); handleReject(req.id, req._kind, req) }}
+                            disabled={!!actionLoading}
+                            style={{ display:'flex', alignItems:'center', gap:5, background:'rgba(248,113,113,0.1)', border:'1px solid rgba(248,113,113,0.4)', borderRadius:'var(--r-md)', padding:'7px 12px', cursor:'pointer', color:'var(--danger)', fontSize:'12px', fontWeight:600, flexShrink:0, transition:'all var(--t-fast)', whiteSpace:'nowrap', opacity:actionLoading?0.6:1 }}
+                            onMouseEnter={e => e.currentTarget.style.background='rgba(248,113,113,0.22)'}
+                            onMouseLeave={e => e.currentTarget.style.background='rgba(248,113,113,0.1)'}
+                          >
+                            <XCircle size={13} />
+                            {actionLoading === req._uid + '_reject' ? 'Rejecting…' : 'Reject'}
+                          </button>
+                        )}
+                        <button
+                          onClick={e => { e.stopPropagation(); handleApprove(req.id, req._kind, req) }}
+                          disabled={!!actionLoading}
+                          style={{ display:'flex', alignItems:'center', gap:5, background:'rgba(74,222,128,0.12)', border:'1px solid rgba(74,222,128,0.4)', borderRadius:'var(--r-md)', padding:'7px 14px', cursor:'pointer', color:'var(--success)', fontSize:'12px', fontWeight:600, flexShrink:0, transition:'all var(--t-fast)', whiteSpace:'nowrap', opacity:actionLoading?0.6:1 }}
+                          onMouseEnter={e => e.currentTarget.style.background='rgba(74,222,128,0.22)'}
+                          onMouseLeave={e => e.currentTarget.style.background='rgba(74,222,128,0.12)'}
+                        >
+                          <CheckCircle size={13} />
+                          {actionLoading === req._uid + '_approve' ? 'Approving…' : req._kind === 'late_entry' ? 'Unlock' : 'Approve'}
+                        </button>
+                      </div>
                     )}
 
                     {!isApplying && (
@@ -611,11 +644,20 @@ export default function ApprovalsPage() {
                               />
                             </div>
                           )}
+                          {req._kind === 'timesheet' && (
+                            <div>
+                              <div style={{ fontSize:'11px', fontWeight:700, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>Note to Resource <span style={{ fontWeight:400 }}>(optional)</span></div>
+                              <textarea value={adminNote[req._uid] || ''} onChange={e => setAdminNote(n => ({ ...n, [req._uid]: e.target.value }))} placeholder="Reason for rejection (sent to resource)…" rows={2}
+                                style={{ width:'100%', boxSizing:'border-box', background:'var(--bg-1)', border:'1px solid var(--border)', borderRadius:'var(--r-md)', color:'var(--text-0)', fontSize:'13px', padding:'10px 12px', outline:'none', resize:'vertical', fontFamily:'inherit' }}
+                                onFocus={e => e.target.style.borderColor='var(--accent)'} onBlur={e => e.target.style.borderColor='var(--border)'}
+                              />
+                            </div>
+                          )}
                           <div style={{ display:'flex', gap:10, justifyContent:'flex-end', flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
                             {(req._kind === 'timesheet' || req._kind === 'late_entry') && (
                               <>
-                              {req._kind === 'late_entry' && (
-                                <button onClick={() => handleLateEntryDecision(req, false)} disabled={!!actionLoading}
+                              {(req._kind === 'late_entry' || req._kind === 'timesheet') && (
+                                <button onClick={() => req._kind === 'timesheet' ? handleReject(req.id, req._kind, req) : handleLateEntryDecision(req, false)} disabled={!!actionLoading}
                                   style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(248,113,113,0.1)', border:'1px solid rgba(248,113,113,0.4)', borderRadius:'var(--r-md)', padding:'9px 20px', cursor:'pointer', color:'var(--danger)', fontSize:'13px', fontWeight:600, opacity:actionLoading?0.6:1, transition:'all var(--t-fast)', flex: isMobile ? '1 1 auto' : 'none', justifyContent:'center' }}>
                                   <XCircle size={14}/> {actionLoading === `${req._uid}_reject` ? 'Rejecting…' : 'Reject'}
                                 </button>
@@ -628,7 +670,7 @@ export default function ApprovalsPage() {
                             )}
                             {isAdmin && req._kind !== 'timesheet' && (
                               <>
-                                <button onClick={() => handleReject(req.id, req._kind)} disabled={!!actionLoading}
+                                <button onClick={() => handleReject(req.id, req._kind, req)} disabled={!!actionLoading}
                                   style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(248,113,113,0.1)', border:'1px solid rgba(248,113,113,0.4)', borderRadius:'var(--r-md)', padding:'9px 20px', cursor:'pointer', color:'var(--danger)', fontSize:'13px', fontWeight:600, opacity:actionLoading?0.6:1, transition:'all var(--t-fast)', flex: isMobile ? '1 1 auto' : 'none', justifyContent:'center' }}>
                                   <XCircle size={14}/> {actionLoading === `${req._kind}-${req.id}_reject` ? 'Rejecting…' : 'Reject'}
                                 </button>

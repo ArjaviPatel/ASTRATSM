@@ -1,4 +1,5 @@
 import logging
+from datetime import date as _date
 from decimal import Decimal
 
 from django.conf import settings
@@ -334,6 +335,91 @@ class ResourceProfileViewSet(viewsets.ModelViewSet):
             },
         })
 
+    @action(detail=False, methods=['get'], permission_classes=[IsAdminOrManager])
+    def daily_report(self, request):
+        """
+        Manager/Admin daily dashboard report for a specific date.
+        Returns: submitted resources, not-submitted resources, project hours summary.
+        """
+        from datetime import date as date_cls
+        date_str = request.query_params.get('date', str(timezone.localdate()))
+        try:
+            report_date = date_cls.fromisoformat(date_str)
+        except ValueError:
+            return Response({'detail': 'Invalid date format. Use YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = request.user
+        # Determine which resources this user can see
+        if user.role == User.Role.ADMIN:
+            all_resources = ResourceProfile.objects.select_related('user', 'manager').filter(user__role=User.Role.RESOURCE)
+        else:
+            all_resources = ResourceProfile.objects.select_related('user', 'manager').filter(
+                Q(manager=user) | Q(user__assigned_projects__manager=user)
+            ).distinct()
+
+        # Time entries submitted on this date
+        entries_on_date = TimeEntry.objects.filter(date=report_date).select_related('resource__user', 'project', 'timeline')
+        if user.role != User.Role.ADMIN:
+            entries_on_date = entries_on_date.filter(
+                Q(resource__manager=user) | Q(project__manager=user)
+            ).distinct()
+
+        submitted_resource_ids = set(entries_on_date.values_list('resource_id', flat=True).distinct())
+        submitted_resources = [
+            {
+                'id': r.id,
+                'name': r.user.name,
+                'email': r.user.email,
+                'resource_id': r.resource_id,
+                'manager': r.manager.name if r.manager else None,
+                'hours_submitted': float(sum(e.hours for e in entries_on_date if e.resource_id == r.id)),
+            }
+            for r in all_resources if r.id in submitted_resource_ids
+        ]
+        not_submitted_resources = [
+            {
+                'id': r.id,
+                'name': r.user.name,
+                'email': r.user.email,
+                'resource_id': r.resource_id,
+                'manager': r.manager.name if r.manager else None,
+            }
+            for r in all_resources if r.id not in submitted_resource_ids
+        ]
+
+        # Project hours summary: allocated, consumed (all-time approved), remaining
+        if user.role == User.Role.ADMIN:
+            projects_qs = Project.objects.all()
+        else:
+            projects_qs = Project.objects.filter(Q(manager=user) | Q(assigned_resources__manager=user)).distinct()
+
+        DECIMAL_FIELD = DecimalField(max_digits=12, decimal_places=2)
+
+        project_hours = []
+        for p in projects_qs.annotate(
+            consumed=Coalesce(Sum('timeentries__hours', filter=Q(timeentries__approved=True)), Value(0), output_field=DECIMAL_FIELD),
+            pending=Coalesce(Sum('timeentries__hours', filter=Q(timeentries__approved=False)), Value(0), output_field=DECIMAL_FIELD),
+        ).order_by('name')[:200]:
+            allocated = float(p.hours or 0)
+            consumed = float(p.consumed or 0)
+            pending = float(p.pending or 0)
+            project_hours.append({
+                'id': p.id,
+                'name': p.name,
+                'status': p.status,
+                'hours_allocated': allocated,
+                'hours_consumed': consumed,
+                'hours_pending': pending,
+                'hours_remaining': max(allocated - consumed - pending, 0),
+            })
+
+        return Response({
+            'date': str(report_date),
+            'submitted': submitted_resources,
+            'not_submitted': not_submitted_resources,
+            'project_hours': project_hours,
+        })
+
 
 class TimeEntryViewSet(viewsets.ModelViewSet):
     queryset = TimeEntry.objects.select_related('resource__user', 'resource__manager', 'project__manager', 'project__client', 'timeline', 'approved_by')
@@ -407,6 +493,30 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         instance.delete()
         _sync_timeline_hours(timeline_id)
 
+    @action(detail=False, methods=['get'], permission_classes=[IsAdminOrManager])
+    def export(self, request):
+        """Export time entries to Excel. Supports same filters as list."""
+        qs = self.filter_queryset(self.get_queryset()).order_by('-date', 'resource__user__name')
+        headers = ['Date', 'Resource', 'Resource ID', 'Project', 'Client', 'Timeline', 'Hours', 'Start', 'End', 'Description', 'Approved', 'Approved By', 'Approved At']
+        rows = []
+        for e in qs:
+            rows.append([
+                str(e.date),
+                e.resource.user.name if e.resource else '',
+                e.resource.resource_id or '' if e.resource else '',
+                e.project.name if e.project else '',
+                e.project.client.name if e.project and e.project.client else '',
+                e.timeline.name if e.timeline else '',
+                float(e.hours),
+                str(e.start_time) if e.start_time else '',
+                str(e.end_time) if e.end_time else '',
+                e.description or '',
+                'Yes' if e.approved else 'No',
+                e.approved_by.name if e.approved_by else '',
+                e.approved_at.isoformat() if e.approved_at else '',
+            ])
+        return workbook_response('timesheets_export.xlsx', 'Timesheets', headers, rows)
+
     @action(detail=True, methods=['patch'], permission_classes=[IsAuthenticated])
     def approve(self, request, pk=None):
         entry = self.get_object()
@@ -433,6 +543,35 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         )
         _send_timesheet_approval_email(entry, request.user)
         return Response({'approved': True, 'approved_by': request.user.name})
+
+    @action(detail=True, methods=['patch'], permission_classes=[IsAuthenticated])
+    def reject(self, request, pk=None):
+        entry = self.get_object()
+        if request.user.role not in (User.Role.MANAGER, User.Role.ADMIN):
+            return Response({'detail': 'Only managers or admins can reject time entries.'}, status=status.HTTP_403_FORBIDDEN)
+        if request.user.role == User.Role.MANAGER:
+            can_reject = entry.resource.manager_id == request.user.id or entry.project.manager_id == request.user.id
+            if not can_reject:
+                return Response({'detail': 'You can only reject entries for resources or projects assigned to you.'}, status=status.HTTP_403_FORBIDDEN)
+        if entry.approved:
+            return Response({'detail': 'Cannot reject an already approved entry.'}, status=status.HTTP_400_BAD_REQUEST)
+        admin_note = request.data.get('admin_note', '')
+        # Save info before delete for notification
+        resource_user = entry.resource.user
+        project = entry.project
+        hours = entry.hours
+        date = entry.date
+        _sync_timeline_hours(entry.timeline_id)
+        entry.delete()
+        notify_user(
+            user=resource_user,
+            notif_type='alert',
+            title='Time entry rejected',
+            message=f'Your {hours}h on "{project.name}" ({date}) was rejected by {request.user.name}.' + (f' Note: {admin_note}' if admin_note else ''),
+            project=project,
+            action_url='/timesheet',
+        )
+        return Response({'detail': 'Time entry rejected and removed.'})
 
 
 class TimesheetLateEntryApprovalViewSet(viewsets.ModelViewSet):

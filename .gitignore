@@ -17,5 +17,6 @@ nexus-frontend/.env
 .DS_Store
 Thumbs.db
 
-.env.example
 .env.uat.example
+# Keep the safe template tracked in version control
+!.env.example

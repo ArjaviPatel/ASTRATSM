@@ -39,17 +39,29 @@ app.autodiscover_tasks()
 # These fire automatically — no cron or manual command needed.
 # Times are in the timezone set by CELERY_TIMEZONE in settings.py.
 
+# Reminder times are configurable via env so ops can tune them per-deployment
+# without code changes. Format: HOUR and MINUTE (24h, in CELERY_TIMEZONE).
+_R1_HOUR = int(os.environ.get('TIMESHEET_REMINDER_1_HOUR', 17))
+_R1_MIN = int(os.environ.get('TIMESHEET_REMINDER_1_MINUTE', 30))
+_R2_HOUR = int(os.environ.get('TIMESHEET_REMINDER_2_HOUR', 17))
+_R2_MIN = int(os.environ.get('TIMESHEET_REMINDER_2_MINUTE', 45))
+
 app.conf.beat_schedule = {
-    # 5:30 PM — first timesheet reminder (weekdays only)
-    'timesheet-reminder-1045pm': {
+    # First timesheet reminder (weekdays only) — default 5:30 PM
+    'timesheet-reminder-first': {
         'task': 'resources.tasks.run_timesheet_reminders',
-        'schedule': crontab(hour=10, minute=56, day_of_week='1-5'),  # Mon–Fri
+        'schedule': crontab(hour=_R1_HOUR, minute=_R1_MIN, day_of_week='1-5'),  # Mon–Fri
         'kwargs': {'slot': 'first'},
     },
-    # 5:45 PM — second timesheet reminder (weekdays only)
-    'timesheet-reminder-545pm': {
+    # Second timesheet reminder (weekdays only) — default 5:45 PM
+    'timesheet-reminder-second': {
         'task': 'resources.tasks.run_timesheet_reminders',
-        'schedule': crontab(hour=17, minute=45, day_of_week='1-5'),  # Mon–Fri
+        'schedule': crontab(hour=_R2_HOUR, minute=_R2_MIN, day_of_week='1-5'),  # Mon–Fri
         'kwargs': {'slot': 'second'},
+    },
+    # Nightly housekeeping — purge consumed / expired login OTP challenges (3:15 AM)
+    'purge-stale-otp-challenges': {
+        'task': 'accounts.tasks.purge_stale_otp_challenges',
+        'schedule': crontab(hour=3, minute=15),
     },
 }

@@ -5,7 +5,7 @@ import {
   CheckCircle, User, Calendar, Wrench, Shield, Users, Mail,
 } from 'lucide-react'
 import { notificationsApi, resourcesApi, authApi } from '@/api/index.js'
-import { Btn, Badge, EmptyState, Spinner, Avatar, Input, Textarea, Modal } from '@/components/ui/index.jsx'
+import { Btn, Badge, EmptyState, Spinner, Avatar, Input, Textarea, Modal, Select, Alert, FormGrid } from '@/components/ui/index.jsx'
 import { timeAgo, extractError, downloadBlob } from '@/utils/index.js'
 import { useAuthStore } from '@/stores/authStore.js'
 
@@ -510,17 +510,6 @@ function ResourceFormModal({ resource, managers, onClose, onSaved }) {
   const [error, setError] = useState('')
 
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }))
-  const dropdownStyle = {
-    width: '100%',
-    background: 'var(--bg-2)',
-    border: '1px solid var(--border)',
-    borderRadius: 'var(--r-md)',
-    color: 'var(--text-0)',
-    fontSize: '15px',
-    padding: '9px 12px',
-    outline: 'none',
-    cursor: 'pointer',
-  }
 
   async function submit(e) {
     e.preventDefault()
@@ -552,43 +541,37 @@ function ResourceFormModal({ resource, managers, onClose, onSaved }) {
   }
 
   return (
-    <Modal open onClose={onClose} title={isEdit ? 'Edit Resource' : 'New Resource'} width={560}>
+    <Modal open onClose={onClose} title={isEdit ? 'Edit Resource' : 'New Resource'} width={640}>
       <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
-        {error && <div style={{ color: 'var(--danger)', fontSize: '15px', background: 'rgba(248,113,113,0.1)', padding: '8px 12px', borderRadius: 'var(--r-md)' }}>{error}</div>}
+        {error && <Alert type="error" message={error} onClose={() => setError('')} />}
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--sp-4)' }}>
+        <FormGrid>
           <Input label="Name" value={form.name} onChange={e => f('name', e.target.value)} required />
           <Input label="Email" type="email" value={form.email} onChange={e => f('email', e.target.value)} required />
-        </div>
+        </FormGrid>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--sp-4)' }}>
+        <FormGrid>
           <Input label="Resource ID" value={form.resource_id} onChange={e => f('resource_id', e.target.value)} placeholder="e.g. E001" required />
           <Input label={isEdit ? 'Reset Password (optional)' : 'Password'} type="password" value={form.password} onChange={e => f('password', e.target.value)} required={!isEdit} />
-        </div>
+        </FormGrid>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--sp-4)' }}>
-          <div>
-            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Resource Level</div>
-            <select value={form.level} onChange={e => f('level', e.target.value)} style={dropdownStyle}>
-              <option value="">Select level</option>
-              <option value="L1">L1</option>
-              <option value="L2">L2</option>
-              <option value="L3">L3</option>
-              <option value="L4">L4</option>
-            </select>
-          </div>
-          <div>
-            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Manager</div>
-            <select value={form.manager} onChange={e => f('manager', e.target.value)} style={dropdownStyle}>
-              <option value="">Unassigned</option>
-              {managers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-            </select>
-          </div>
-        </div>
+        <FormGrid>
+          <Select label="Resource Level" value={form.level} onChange={e => f('level', e.target.value)}>
+            <option value="">Select level</option>
+            <option value="L1">L1</option>
+            <option value="L2">L2</option>
+            <option value="L3">L3</option>
+            <option value="L4">L4</option>
+          </Select>
+          <Select label="Manager" value={form.manager} onChange={e => f('manager', e.target.value)}>
+            <option value="">Unassigned</option>
+            {managers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+          </Select>
+        </FormGrid>
 
         <Input label="Availability %" type="number" min="0" max="100" value={form.availability} onChange={e => f('availability', e.target.value)} />
 
-        <div style={{ display: 'flex', gap: 'var(--sp-3)', justifyContent: 'flex-end', marginTop: 'var(--sp-2)' }}>
+        <div style={{ display: 'flex', gap: 'var(--sp-3)', justifyContent: 'flex-end', marginTop: 'var(--sp-2)', flexWrap: 'wrap' }}>
           <Btn variant="ghost" type="button" onClick={onClose}>Cancel</Btn>
           <Btn type="submit" loading={loading}>{isEdit ? 'Save Changes' : 'Create Resource'}</Btn>
         </div>
@@ -678,7 +661,7 @@ export function ProfilePage() {
 
   if (!user) return null
 
-  const ROLE_COLOR = { admin: 'var(--danger)', manager: 'var(--info)', resource: 'var(--success)', client: 'var(--warning)' }
+  const ROLE_COLOR = { admin: 'var(--danger)',leadership: '#8b5cf6', manager: 'var(--info)', resource: 'var(--success)', client: 'var(--warning)' }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-6)', maxWidth: 1120, margin: '0 auto', width: '100%' }}>
@@ -848,12 +831,12 @@ export function SettingsPage() {
     return matchSearch && matchRole
   })
 
-  const roleCount = { admin: 0, manager: 0, resource: 0, client: 0 }
+  const roleCount = { admin: 0, leadership: 0, manager: 0, resource: 0, client: 0 }
   allUsers.forEach(u => { if (roleCount[u.role] != null) roleCount[u.role]++ })
   const activeCount = allUsers.filter(u => u.is_active).length
 
-  const ROLE_COLOR = { admin: 'var(--danger)', manager: 'var(--info)', resource: 'var(--success)', client: 'var(--warning)' }
-  const ROLE_BG    = { admin: 'rgba(217,108,108,0.12)', manager: 'rgba(122,166,184,0.12)', resource: 'rgba(73,163,95,0.12)', client: 'rgba(111,166,118,0.12)' }
+  const ROLE_COLOR = { admin: 'var(--danger)', leadership: '#8b5cf6', manager: 'var(--info)', resource: 'var(--success)', client: 'var(--warning)' }
+  const ROLE_BG    = { admin: 'rgba(217,108,108,0.12)', leadership: 'rgba(139,92,246,0.12)', manager: 'rgba(122,166,184,0.12)', resource: 'rgba(73,163,95,0.12)', client: 'rgba(111,166,118,0.12)' }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-6)' }}>
@@ -955,7 +938,7 @@ export function SettingsPage() {
                           fontSize: '13px', fontWeight: 700, padding: '4px 8px',
                           cursor: 'pointer', outline: 'none', textTransform: 'capitalize',
                         }}>
-                        {['admin', 'manager', 'resource', 'client'].map(r => <option key={r} value={r}>{r}</option>)}
+                        {['admin', 'leadership', 'manager', 'resource', 'client'].map(r => <option key={r} value={r}>{r}</option>)}
                       </select>
                     </td>
 

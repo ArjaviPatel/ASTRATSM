@@ -1,0 +1,18 @@
+[Unit]
+Description=AstraTSM Celery worker (background tasks, emails, reminders)
+After=network.target redis-server.service postgresql.service
+Wants=redis-server.service
+
+[Service]
+Type=simple
+User=astratsm
+Group=www-data
+WorkingDirectory=/opt/astratsm/backend
+EnvironmentFile=/opt/astratsm/backend/.env
+ExecStart=/opt/astratsm/backend/venv/bin/celery -A nexus worker \
+    --loglevel=info --concurrency=4
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

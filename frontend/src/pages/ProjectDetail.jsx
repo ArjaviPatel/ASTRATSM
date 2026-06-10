@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Plus, FileText, MessageSquare, Users, Calendar, DollarSign, TrendingUp, Edit2, Trash2, X, Save, Building2, GitBranch, CheckCircle, Circle, Send, Clock } from 'lucide-react'
 import { projectsApi, authApi, clientsApi, timelinesApi, approvalsApi } from '@/api/index.js'
-import { Btn, Badge, ProgressBar, Tabs, Modal, Input, Textarea, Spinner, Avatar } from '@/components/ui/index.jsx'
+import { Btn, Badge, ProgressBar, Tabs, Modal, Input, Textarea, Spinner, Avatar, Alert } from '@/components/ui/index.jsx'
 import { STATUS_COLOR, STATUS_LABEL, PRIORITY_COLOR, PRIORITY_LABEL, formatDate, formatCurrency, formatBytes, timeAgo, extractError } from '@/utils/index.js'
 import { useAuthStore } from '@/stores/authStore.js'
 
@@ -226,7 +226,7 @@ export default function ProjectDetailPage() {
         )}
       </div>
 
-      {error && <div style={{ color: 'var(--danger)', fontSize: '15px', background: 'rgba(248,113,113,0.1)', padding: '10px 14px', borderRadius: 'var(--r-md)' }}>{error}</div>}
+      {error && <Alert type="error" message={error} onClose={() => setError('')} />}
 
       {/* Edit Form */}
       {editing && form && (
@@ -911,7 +911,7 @@ function CreatePhaseModal({ projectId, onClose, onCreated }) {
   return (
     <Modal open onClose={onClose} title="Add Timeline Phase" fullscreen>
       <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-5)' }}>
-        {error && <div style={{ color: 'var(--danger)', fontSize: '15px', background: 'rgba(248,113,113,0.1)', padding: '8px 12px', borderRadius: 'var(--r-md)' }}>{error}</div>}
+        {error && <Alert type="error" message={error} onClose={() => setError('')} />}
         <Input label="Phase name" value={form.name} onChange={e => f('name', e.target.value)} required />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--sp-4)' }}>
           <Input label="Start date" type="date" value={form.start_date} onChange={e => f('start_date', e.target.value)} required />
@@ -971,9 +971,7 @@ function ApprovalRequestModal({ project, type, onClose, onSubmitted }) {
           }
         </div>
 
-        {err && (
-          <div style={{ color: 'var(--danger)', fontSize: '15px', background: 'rgba(248,113,113,0.1)', padding: '8px 12px', borderRadius: 'var(--r-md)' }}>{err}</div>
-        )}
+        {err && <Alert type="error" message={err} onClose={() => setErr('')} />}
 
         {/* Reason */}
         <div>

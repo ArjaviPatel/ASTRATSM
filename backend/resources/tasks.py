@@ -5,9 +5,21 @@ All bugs from previous versions are fixed here. See comments marked BUG FIX.
 """
 import logging
 
+from celery import shared_task
 from django.utils import timezone
 
 logger = logging.getLogger('nexus')
+
+
+@shared_task(name='resources.tasks.run_timesheet_reminders')
+def run_timesheet_reminders(slot: str = 'first') -> dict:
+    """Celery entry point wired to Celery Beat in nexus/celery.py.
+
+    Kept as a thin wrapper so the underlying logic stays importable and
+    callable synchronously from the shell or a management command without
+    needing a running worker.
+    """
+    return send_timesheet_reminders_now(slot=slot)
 
 
 def send_timesheet_reminders_now(slot: str = 'first') -> dict:

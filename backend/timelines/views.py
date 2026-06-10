@@ -22,6 +22,7 @@ from datetime import datetime, time as dt_time, timedelta
 
 logger = logging.getLogger('nexus')
 
+ADMIN_ROLES = (User.Role.ADMIN, User.Role.LEADERSHIP)
 
 def _count_work_hours(from_dt, to_dt):
     """Mon-Fri, 8 working hours per day."""
@@ -65,7 +66,7 @@ def _timeline_team(timeline, exclude=None):
 
 
 def _user_can_access_timeline(user, timeline):
-    if user.role == User.Role.ADMIN:
+    if user.role in ADMIN_ROLES:
         return True
     if user.role == User.Role.MANAGER:
         return timeline.project.manager_id == user.pk
@@ -75,7 +76,7 @@ def _user_can_access_timeline(user, timeline):
 
 
 def _user_can_manage_timeline(user, timeline):
-    if user.role == User.Role.ADMIN:
+    if user.role in ADMIN_ROLES:
         return True
     if user.role == User.Role.MANAGER:
         return timeline.project.manager_id == user.pk
@@ -102,7 +103,7 @@ def _apply_progress_status(timeline, progress, requested_status=None):
 
 
 def _email_timeline_approval_request(req):
-    admins = list(User.objects.filter(role=User.Role.ADMIN, is_active=True))
+    admins = list(User.objects.filter(role__in=ADMIN_ROLES, is_active=True))
     if not admins:
         return
     timeline_name = req.timeline.name if req.timeline else 'Timeline request'
@@ -164,7 +165,7 @@ class TimelineViewSet(viewsets.ModelViewSet):
                 output_field=IntegerField(),
             ),
         )
-        if user.role == User.Role.ADMIN:
+        if user.role in ADMIN_ROLES:
             return base.all()
         if user.role == User.Role.MANAGER:
             return base.filter(project__manager=user)
@@ -376,7 +377,7 @@ class MilestoneViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         qs = super().get_queryset()
-        if user.role == User.Role.ADMIN:
+        if user.role in ADMIN_ROLES:
             return qs
         if user.role == User.Role.MANAGER:
             return qs.filter(timeline__project__manager=user)
@@ -422,7 +423,7 @@ class TimelineApprovalViewSet(viewsets.ModelViewSet):
         qs = TimelineApprovalRequest.objects.select_related('timeline__project', 'requested_by', 'resolved_by')
         status_filter = self.request.query_params.get('status')
         request_type = self.request.query_params.get('request_type')
-        if user.role == User.Role.ADMIN:
+        if user.role in ADMIN_ROLES:
             scoped = qs.all()
         elif user.role == User.Role.MANAGER:
             scoped = qs.filter(Q(requested_by=user) | Q(timeline__project__manager=user)).distinct()
@@ -455,7 +456,7 @@ class TimelineApprovalViewSet(viewsets.ModelViewSet):
         req = serializer.save(requested_by=user, proposed_changes={})
         timeline_name = req.timeline.name if req.timeline else 'Unknown'
         logger.info('Timeline approval request %s (%s) by %s', req.id, req.request_type, user.email)
-        admins = User.objects.filter(role=User.Role.ADMIN, is_active=True)
+        admins = User.objects.filter(role__in=ADMIN_ROLES, is_active=True)
         notify_project_team(
             users=list(admins),
             notif_type='status_change',
@@ -569,7 +570,7 @@ class TimelineApprovalViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def pending_count(self, request):
         user = request.user
-        if user.role == User.Role.ADMIN:
+        if user.role in ADMIN_ROLES:
             count = TimelineApprovalRequest.objects.filter(status=TimelineApprovalRequest.Status.PENDING).count()
         elif user.role == User.Role.MANAGER:
             count = TimelineApprovalRequest.objects.filter(status=TimelineApprovalRequest.Status.PENDING, timeline__project__manager=user).count()

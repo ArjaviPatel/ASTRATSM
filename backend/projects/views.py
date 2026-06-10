@@ -15,6 +15,7 @@ from rest_framework.response import Response
 
 from accounts.models import User
 from accounts.permissions import IsAdmin, IsAdminOrManager
+ADMIN_ROLES = (User.Role.ADMIN, User.Role.LEADERSHIP)
 from nexus.excel import workbook_response
 from notifications.utils import email_no_reply, email_users, notify_project_team
 from .models import Project, ProjectApprovalRequest
@@ -64,7 +65,7 @@ def _project_team(project, exclude=None):
 
 
 def _notify_admins(title, message, action_url=''):
-    admins = list(User.objects.filter(role=User.Role.ADMIN, is_active=True))
+    admins = list(User.objects.filter(role__in=ADMIN_ROLES, is_active=True))
     if admins:
         notify_project_team(users=admins, notif_type='update', title=title, message=message, action_url=action_url)
 
@@ -162,7 +163,7 @@ def _email_project_note(project, recipients, actor, content):
 
 
 def _email_project_approval_request(req):
-    admins = list(User.objects.filter(role=User.Role.ADMIN, is_active=True))
+    admins = list(User.objects.filter(role__in=ADMIN_ROLES, is_active=True))
     if not admins:
         return
     project_name = req.project.name if req.project else 'Project request'
@@ -221,7 +222,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         )
         if self.action in ('retrieve', 'assign_resource', 'remove_resource', 'add_update', 'upload_document', 'update_progress'):
             base = base.prefetch_related('resources', 'updates', 'documents')
-        if user.role == User.Role.ADMIN:
+        if user.role in ADMIN_ROLES:
             qs = base.all()
         elif user.role in (User.Role.MANAGER, User.Role.RESOURCE):
             qs = base.filter(status__in=['planning', 'in_progress', 'review', 'on_hold'])
@@ -249,7 +250,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         project = serializer.save(created_by=self.request.user)
         logger.info('Project "%s" created by %s', project.name, self.request.user.email)
-        recipients = list(User.objects.filter(role__in=[User.Role.ADMIN, User.Role.MANAGER], is_active=True))
+        recipients = list(User.objects.filter(role__in=[*ADMIN_ROLES, User.Role.MANAGER], is_active=True))
         assigned_resources = list(project.resources.filter(is_active=True))
         for resource in assigned_resources:
             if resource not in recipients:
@@ -449,7 +450,7 @@ class ProjectApprovalViewSet(viewsets.ModelViewSet):
         qs = ProjectApprovalRequest.objects.select_related('project', 'requested_by', 'resolved_by')
         status_filter = self.request.query_params.get('status')
         request_type = self.request.query_params.get('request_type')
-        if user.role == User.Role.ADMIN:
+        if user.role in ADMIN_ROLES:
             scoped = qs.all()
         elif user.role == User.Role.MANAGER:
             scoped = (qs.filter(project__manager=user) | qs.filter(requested_by=user)).distinct()
@@ -609,7 +610,7 @@ class ProjectApprovalViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def pending_count(self, request):
         user = request.user
-        if user.role == User.Role.ADMIN:
+        if user.role in ADMIN_ROLES:
             count = ProjectApprovalRequest.objects.filter(status=ProjectApprovalRequest.Status.PENDING).count()
         elif user.role == User.Role.MANAGER:
             count = ProjectApprovalRequest.objects.filter(

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Briefcase, User, Mail, Phone, Globe, Edit2, Trash2, Plus, X, Save } from 'lucide-react'
 import { clientsApi } from '@/api/index.js'
-import { Btn, Badge, Tabs, Spinner, Input, Textarea, Modal } from '@/components/ui/index.jsx'
+import { Btn, Badge, Tabs, Spinner, Input, Textarea, Modal, Alert } from '@/components/ui/index.jsx'
 import { STATUS_COLOR, STATUS_LABEL, PRIORITY_COLOR, PRIORITY_LABEL, formatDate, timeAgo, extractError } from '@/utils/index.js'
 import { useAuthStore } from '@/stores/authStore.js'
 
@@ -164,7 +164,7 @@ export default function ClientDetailPage() {
         )}
       </div>
 
-      {error && <div style={{ color: 'var(--danger)', fontSize: '15px', background: 'rgba(248,113,113,0.1)', padding: '10px 14px', borderRadius: 'var(--r-md)' }}>{error}</div>}
+      {error && <Alert type="error" message={error} onClose={() => setError('')} />}
 
       {/* Edit Form */}
       {editing && form && (
@@ -563,7 +563,7 @@ function AddContactModal({ clientId, onClose, onSaved }) {
   return (
     <Modal open onClose={onClose} title="Add Contact" width={460}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
-        {error && <div style={{ color: 'var(--danger)', fontSize: '15px', background: 'rgba(248,113,113,0.1)', padding: '8px 12px', borderRadius: 'var(--r-md)' }}>{error}</div>}
+        {error && <Alert type="error" message={error} onClose={() => setError('')} />}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--sp-3)' }}>
           <Input label="Full Name" value={form.name} onChange={e => f('name', e.target.value)} required />
           <Input label="Position / Role" value={form.position} onChange={e => f('position', e.target.value)} />

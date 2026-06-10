@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Building2, Search, Download } from 'lucide-react'
 import { clientsApi } from '@/api/index.js'
-import { Btn, Badge, EmptyState, Modal, Input, Select, Textarea, Pagination } from '@/components/ui/index.jsx'
+import { Btn, Badge, EmptyState, Modal, Input, Select, Textarea, Pagination, Alert, FormGrid } from '@/components/ui/index.jsx'
 import { downloadBlob, extractError, timeAgo } from '@/utils/index.js'
 import { useAuthStore } from '@/stores/authStore.js'
 
@@ -182,42 +182,39 @@ function CreateClientModal({ onClose, onCreated }) {
   }
 
   return (
-    <Modal open onClose={onClose} title="New Client" fullscreen>
+    <Modal open onClose={onClose} title="New Client" width={640}>
       <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
-        {error && (
-          <div style={{ color: 'var(--danger)', fontSize: '15px', background: 'rgba(248,113,113,0.1)', padding: '8px 12px', borderRadius: 'var(--r-md)' }}>
-            {error}
-          </div>
-        )}
+        {error && <Alert type="error" message={error} onClose={() => setError('')} />}
 
         <Input label="Company Name" value={form.name} onChange={e => f('name', e.target.value)} required />
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--sp-4)' }}>
+        <FormGrid>
           <Input label="Email 1" type="email" value={form.email} onChange={e => f('email', e.target.value)} required />
           <Input label="Email 2" type="email" value={form.email2} onChange={e => f('email2', e.target.value)} />
-        </div>
+        </FormGrid>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--sp-4)' }}>
+        <FormGrid>
           <Input label="Phone 1" value={form.phone} onChange={e => f('phone', e.target.value)} />
           <Input label="Phone 2" value={form.phone2} onChange={e => f('phone2', e.target.value)} />
-        </div>
+        </FormGrid>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--sp-4)' }}>
+        <FormGrid>
           <Input label="Name 1" value={form.contact_person} onChange={e => f('contact_person', e.target.value)} />
           <Input label="Name 2" value={form.contact_person2} onChange={e => f('contact_person2', e.target.value)} />
-        </div>
+        </FormGrid>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--sp-4)' }}>
+        <FormGrid>
           <Input label="Website" value={form.website} onChange={e => f('website', e.target.value)} placeholder="https://example.com" />
           <Select label="Status" value={form.status} onChange={e => f('status', e.target.value)}>
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
           </Select>
-        </div>
+        </FormGrid>
 
         <Textarea label="Notes" value={form.notes} onChange={e => f('notes', e.target.value)} placeholder="Internal notes..." rows={3} />
 
-        <div style={{ display: 'flex', gap: 'var(--sp-3)', justifyContent: 'flex-end', marginTop: 'var(--sp-2)' }}>
+        <div style={{ display: 'flex', gap: 'var(--sp-3)', justifyContent: 'flex-end', marginTop: 'var(--sp-2)', flexWrap: 'wrap' }}>
+          <Btn variant="ghost" type="button" onClick={onClose}>Cancel</Btn>
           <Btn type="submit" loading={loading}>Create Client</Btn>
         </div>
       </form>

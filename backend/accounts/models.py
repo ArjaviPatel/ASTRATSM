@@ -59,6 +59,7 @@ class UserManager(BaseUserManager):
 class User(AbstractBaseUser, PermissionsMixin):
     class Role(models.TextChoices):
         ADMIN = 'admin', 'Admin'
+        LEADERSHIP = 'leadership', 'Leadership'
         MANAGER = 'manager', 'Project Manager'
         RESOURCE = 'resource', 'Resource'
         CLIENT = 'client', 'Client'
@@ -101,7 +102,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     def save(self, *args, **kwargs):
         if self.is_superuser:
             self.is_staff = True
-        elif self.role == self.Role.ADMIN:
+        elif self.role in (self.Role.ADMIN, self.Role.LEADERSHIP):
             self.is_staff = True
         else:
             self.is_staff = False
@@ -125,7 +126,7 @@ class RolePermission(models.Model):
     permissions = models.JSONField(default=dict)
     updated_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='+', limit_choices_to={'role__in': ['admin', 'manager']}
+        related_name='+', limit_choices_to={'role__in': ['admin', 'leadership', 'manager']}
     )
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -139,6 +140,7 @@ class RolePermission(models.Model):
     def defaults(cls):
         return {
             User.Role.ADMIN: {'dashboard': True, 'clients': True, 'projects': True, 'timelines': True, 'resources': True, 'chat': True, 'reports': True, 'access_control': True},
+            User.Role.LEADERSHIP: {'dashboard': True, 'clients': True, 'projects': True, 'timelines': True, 'resources': True, 'chat': True, 'reports': True, 'access_control': True },
             User.Role.MANAGER: {'dashboard': True, 'clients': True, 'projects': True, 'timelines': True, 'resources': True, 'chat': True, 'reports': True, 'access_control': False},
             User.Role.RESOURCE: {'dashboard': True, 'clients': False, 'projects_view': True, 'timelines_view': True, 'chat': True, 'reports': False, 'access_control': False},
             User.Role.CLIENT: {'dashboard': True, 'projects_view': True, 'timelines_view': True, 'chat': False, 'reports': False, 'access_control': False},
@@ -187,3 +189,14 @@ class LoginOTPChallenge(models.Model):
 
     def verify(self, code: str) -> bool:
         return self.code_hash == self.hash_code(code)
+
+    @classmethod
+    def purge_stale(cls, older_than_hours: int = 24) -> int:
+        """Delete consumed or long-expired challenges to keep the table lean.
+
+        Returns the number of rows removed. Safe to run repeatedly.
+        """
+        cutoff = timezone.now() - timedelta(hours=older_than_hours)
+        stale = cls.objects.filter(expires_at__lt=cutoff) | cls.objects.filter(consumed_at__lt=cutoff)
+        deleted, _ = stale.distinct().delete()
+        return deleted

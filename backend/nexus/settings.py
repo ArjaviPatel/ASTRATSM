@@ -50,6 +50,7 @@ THIRD_PARTY_APPS = [
     'drf_spectacular',
     'channels',
     'django_extensions',
+    'django_celery_beat',  # DB-backed Celery Beat scheduler (see CELERY_BEAT_SCHEDULER)
 ]
 
 LOCAL_APPS = [
@@ -110,7 +111,7 @@ DATABASES = {
         'CONN_MAX_AGE': 60,
         'OPTIONS': {
             'connect_timeout': 10,
-            'options': '-c default_transaction_isolation=read\ committed',
+            'options': r'-c default_transaction_isolation=read\ committed',
         },
     }
 }
@@ -355,7 +356,9 @@ SPECTACULAR_SETTINGS = {
 
 # ─── I18N ──────────────────────────────────────────────────────────────────────
 LANGUAGE_CODE = 'en-us'
-TIME_ZONE     = 'UTC'
+# Set TIME_ZONE in .env to your local zone (e.g. 'Asia/Kolkata') so Celery Beat
+# reminder times like 17:30 mean 5:30 PM LOCAL, not 5:30 PM UTC.
+TIME_ZONE     = config('TIME_ZONE', default='UTC')
 USE_I18N      = True
 USE_TZ        = True
 

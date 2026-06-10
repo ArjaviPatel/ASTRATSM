@@ -66,7 +66,7 @@ export default function AppLayout() {
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     staleTime: 30_000,
-    enabled: user?.role === 'admin' || user?.role === 'manager',
+    enabled: user?.role === 'admin' || user?.role === 'leadership' || user?.role === 'manager',
   })
 
   const approvalCount = onApprovalsPage ? 0 : (approvalData?.count || 0)
@@ -74,7 +74,23 @@ export default function AppLayout() {
   const sideW = isMobile ? 0 : (collapsed ? 64 : 240)
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
+    <div style={{ display: 'flex', minHeight: '100dvh' }}>
+      {/* Accessibility: skip straight to content (visible only on keyboard focus) */}
+      <a
+        href="#main-content"
+        style={{
+          position: 'fixed', top: 'var(--sp-2)', left: 'var(--sp-2)', zIndex: 9999,
+          background: 'var(--accent)', color: 'var(--text-0)',
+          padding: '8px 14px', borderRadius: 'var(--r-md)',
+          fontSize: 14, fontWeight: 700, textDecoration: 'none',
+          transform: 'translateY(-200%)', transition: 'transform var(--t-fast)',
+        }}
+        onFocus={e => { e.currentTarget.style.transform = 'translateY(0)' }}
+        onBlur={e => { e.currentTarget.style.transform = 'translateY(-200%)' }}
+      >
+        Skip to main content
+      </a>
+
       {/* Mobile overlay backdrop */}
       {isMobile && mobileOpen && (
         <div
@@ -113,20 +129,46 @@ export default function AppLayout() {
           mobileOpen={mobileOpen}
           onMobileMenuToggle={() => setMobileOpen(o => !o)}
         />
-        <main style={{
-          flex: 1,
-          paddingTop: 'calc(60px + var(--sp-4))',
-          paddingBottom: 'var(--sp-8)',
-          paddingLeft: isMobile ? 'var(--sp-4)' : 'var(--sp-8)',
-          paddingRight: isMobile ? 'var(--sp-4)' : 'var(--sp-8)',
-          maxWidth: 1400,
-          width: '100%',
-          marginLeft: 'auto',
-          marginRight: 'auto',
-          boxSizing: 'border-box',
-          animation: 'fadeIn 0.3s ease both',
-        }}>
-          <Outlet />
+        {/*
+          <main> is the primary landmark + the page's vertical scroll region.
+          It spans the full content width (next to the sidebar) and only owns
+          vertical rhythm — clearing the fixed Topbar and adding bottom space.
+
+          Horizontal sizing lives on the inner `.app-container` so that:
+            • every page/form inherits identical gutters + max-width,
+            • the box model matches the Topbar's inner wrapper exactly
+              (max-width + inside padding), keeping header and content aligned,
+            • full-bleed sections can opt out by rendering outside a container.
+
+          `--content-max` (fallback 1400px) is the single knob for page width;
+          define it once in CSS to retune the whole app.
+        */}
+        <main
+          id="main-content"
+          tabIndex={-1}
+          aria-label="Main content"
+          style={{
+            flex: 1,
+            minWidth: 0,
+            paddingTop: 'calc(var(--topbar-h, 60px) + var(--sp-4))',
+            paddingBottom: 'var(--sp-8)',
+            boxSizing: 'border-box',
+            outline: 'none',
+            animation: 'fadeIn 0.3s ease both',
+          }}
+        >
+          <div
+            className="app-container"
+            style={{
+              width: '100%',
+              maxWidth: 'var(--content-max, 1400px)',
+              marginInline: 'auto',
+              paddingInline: isMobile ? 'var(--sp-4)' : 'var(--sp-8)',
+              boxSizing: 'border-box',
+            }}
+          >
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

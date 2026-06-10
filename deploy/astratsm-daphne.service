@@ -1,0 +1,21 @@
+[Unit]
+# OPTIONAL — only needed if you enable real-time WebSocket chat.
+# The current frontend uses polling, so this service is not required for the
+# app to work. Enable it only if you switch chat to WebSockets (/ws/).
+Description=AstraTSM Daphne (ASGI / WebSockets)
+After=network.target redis-server.service
+Wants=redis-server.service
+
+[Service]
+Type=simple
+User=astratsm
+Group=www-data
+WorkingDirectory=/opt/astratsm/backend
+EnvironmentFile=/opt/astratsm/backend/.env
+ExecStart=/opt/astratsm/backend/venv/bin/daphne \
+    -b 127.0.0.1 -p 8001 nexus.asgi:application
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

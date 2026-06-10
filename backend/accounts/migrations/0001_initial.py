@@ -50,7 +50,7 @@ class Migration(migrations.Migration):
                 ('role', models.CharField(choices=[('admin', 'Admin'), ('manager', 'Project Manager'), ('resource', 'Resource'), ('client', 'Client')], max_length=20, unique=True)),
                 ('permissions', models.JSONField(default=dict)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
-                ('updated_by', models.ForeignKey(blank=True, limit_choices_to={'role__in': ['admin', 'manager']}, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to=settings.AUTH_USER_MODEL)),
+                ('updated_by', models.ForeignKey(blank=True, limit_choices_to={'role__in': ['admin', 'leadership', 'manager']}, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to=settings.AUTH_USER_MODEL)),
             ],
             options={
                 'verbose_name': 'Role Permission',

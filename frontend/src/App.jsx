@@ -63,7 +63,7 @@ export default function App() {
           <Route path="timelines"     element={<Navigate to="/timesheet" replace />} />
           <Route path="resources"     element={<PermissionRoute permission="resources"><ResourcesPage /></PermissionRoute>} />
           <Route path="chat"          element={<PermissionRoute permission="chat"><ChatPage /></PermissionRoute>} />
-          <Route path="approvals"     element={<RoleRoute roles={['admin','manager','resource']}><ApprovalsPage /></RoleRoute>} />
+          <Route path="approvals"     element={<RoleRoute roles={['admin','leadership','manager','resource']}><ApprovalsPage /></RoleRoute>} />
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="profile"       element={<ProfilePage />} />
           <Route path="settings"      element={<PermissionRoute permission="access_control"><SettingsPage /></PermissionRoute>} />

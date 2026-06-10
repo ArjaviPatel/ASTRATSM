@@ -71,7 +71,7 @@ class ChatRoomViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         user = self.request.user
         qs   = ChatRoom.objects.select_related('project').prefetch_related('members')
-        if user.role == User.Role.ADMIN:
+        if user.role in (User.Role.ADMIN, User.Role.LEADERSHIP) :
             return qs.all()
         if user.role == User.Role.MANAGER:
             return (qs.filter(members=user) | qs.filter(project__manager=user)).distinct()

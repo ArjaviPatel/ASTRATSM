@@ -79,7 +79,7 @@ export function Spinner({ size = 20, color = 'var(--accent)' }) {
 /* ── Avatar ─────────────────────────────────────────────────────────── */
 export function Avatar({ name, src, size = 36, role }) {
   const roleColors = {
-    admin: 'var(--accent)', manager: 'var(--info)', resource: 'var(--success)', client: 'var(--warning)'
+    admin: 'var(--accent)', leadership: '#8b5cf6', manager: 'var(--info)', resource: 'var(--success)', client: 'var(--warning)'
   }
   const color = role ? roleColors[role] : 'var(--accent)'
   if (src) return (
@@ -199,6 +199,21 @@ export function ProgressBar({ value = 0, color, height = 4, showLabel }) {
   )
 }
 
+/* ── Form grid ──────────────────────────────────────────────────────── */
+// Responsive form field grid: lays fields out in columns that automatically
+// collapse to a single column on narrow screens. Use this instead of
+// hardcoded `1fr 1fr` so every form behaves the same way on mobile.
+export function FormGrid({ children, min = 200, gap = 'var(--sp-4)', style, className }) {
+  return (
+    <div
+      className={className}
+      style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(${min}px, 1fr))`, gap, ...style }}
+    >
+      {children}
+    </div>
+  )
+}
+
 /* ── Input ──────────────────────────────────────────────────────────── */
 export function Input({ label, error, icon: Icon, ...props }) {
   return (
@@ -310,34 +325,48 @@ export function Modal({ open, onClose, title, children, width = 520, fullscreen 
   return (
     <div
       style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
+        position: 'fixed', inset: 0, background: 'rgba(8,12,20,0.66)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        zIndex: 9999, padding: 'var(--sp-4)', backdropFilter: 'blur(4px)',
+        zIndex: 9999, padding: 'var(--sp-4)', backdropFilter: 'blur(6px)',
+        overflowY: 'auto',
+        animation: 'fadeIn 0.18s ease both',
       }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
+        role="dialog"
+        aria-modal="true"
         style={{
           background: 'var(--bg-1)', border: '1px solid var(--border)',
           borderRadius: 'var(--r-xl)', width: '100%', maxWidth: width,
-          maxHeight: '90vh', overflow: 'auto',
-          animation: 'fadeIn 0.2s ease both',
+          maxHeight: 'calc(100dvh - var(--sp-8))',
+          display: 'flex', flexDirection: 'column', overflow: 'hidden',
+          boxShadow: '0 24px 64px -16px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.02)',
+          margin: 'auto',
+          animation: 'riseIn 0.24s cubic-bezier(0.16,1,0.3,1) both',
         }}
       >
+        {/* Fixed header — stays put while the body scrolls */}
         <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: 'var(--sp-5) var(--sp-6)', borderBottom: '1px solid var(--border)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--sp-3)',
+          padding: 'var(--sp-4) var(--sp-5)', borderBottom: '1px solid var(--border)',
+          background: 'var(--bg-1)', flexShrink: 0,
         }}>
-          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem' }}>{title}</h3>
-          <button onClick={onClose} style={{
-            background: 'none', border: 'none', color: 'var(--text-2)',
-            cursor: 'pointer', padding: '4px', lineHeight: 0, borderRadius: 'var(--r-sm)',
-            transition: 'color var(--t-fast)',
-          }}>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.15rem', fontWeight: 800, letterSpacing: '-0.01em', margin: 0, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</h3>
+          <button onClick={onClose} aria-label="Close" style={{
+            background: 'var(--bg-2)', border: '1px solid var(--border)', color: 'var(--text-2)',
+            cursor: 'pointer', width: 32, height: 32, lineHeight: 0, borderRadius: 'var(--r-md)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            transition: 'all var(--t-fast)',
+          }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--danger)'; e.currentTarget.style.color = 'var(--danger)' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-2)' }}
+          >
             <XIcon />
           </button>
         </div>
-        <div style={{ padding: 'var(--sp-6)' }}>{children}</div>
+        {/* Scrollable body */}
+        <div style={{ padding: 'var(--sp-5)', overflowY: 'auto', flex: 1 }}>{children}</div>
       </div>
     </div>
   )

@@ -42,7 +42,7 @@ class Migration(migrations.Migration):
                 ('approved', models.BooleanField(db_index=True, default=False)),
                 ('approved_at', models.DateTimeField(blank=True, null=True)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('approved_by', models.ForeignKey(blank=True, limit_choices_to={'role__in': ['admin', 'manager']}, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='approved_entries', to=settings.AUTH_USER_MODEL)),
+                ('approved_by', models.ForeignKey(blank=True, limit_choices_to={'role__in': ['admin', 'leadership', 'manager']}, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='approved_entries', to=settings.AUTH_USER_MODEL)),
                 ('project', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='timeentries', to='projects.project')),
                 ('resource', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='timeentries', to='resources.resourceprofile')),
             ],

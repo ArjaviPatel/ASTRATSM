@@ -153,14 +153,14 @@ export default function Sidebar({ collapsed, onToggle, unreadCount, approvalCoun
           )
         })}
 
-        {(user?.role === 'admin' || user?.role === 'manager' || user?.role === 'resource') && (
+        {(user?.role === 'admin' || user?.role === 'leadership' || user?.role === 'manager' || user?.role === 'resource') && (
           <NavItem
             to="/approvals"
             icon={ClipboardCheck}
             label="Approvals"
             collapsed={collapsed && !isMobile}
             badge={approvalCount > 0 ? approvalCount : null}
-            badgeColor={user?.role === 'admin' ? 'var(--accent-alt)' : 'var(--success)'}
+            badgeColor={(user?.role === 'admin'|| user?.role === 'leadership') ? 'var(--accent-alt)' : 'var(--success)'}
             onMobileClose={isMobile ? onMobileClose : null}
           />
         )}

@@ -1,0 +1,22 @@
+[Unit]
+Description=AstraTSM Gunicorn (Django REST API)
+After=network.target postgresql.service redis-server.service
+Wants=redis-server.service
+
+[Service]
+Type=notify
+User=astratsm
+Group=www-data
+WorkingDirectory=/opt/astratsm/backend
+EnvironmentFile=/opt/astratsm/backend/.env
+RuntimeDirectory=astratsm
+ExecStart=/opt/astratsm/backend/venv/bin/gunicorn \
+    --config /opt/astratsm/deploy/gunicorn.conf.py \
+    nexus.wsgi:application
+ExecReload=/bin/kill -s HUP $MAINPID
+Restart=always
+RestartSec=5
+KillMode=mixed
+
+[Install]
+WantedBy=multi-user.target

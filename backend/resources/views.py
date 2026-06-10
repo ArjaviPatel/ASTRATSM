@@ -26,7 +26,8 @@ logger = logging.getLogger('nexus')
 
 ACTIVE_PROJECT_STATUSES = ['planning', 'in_progress', 'review', 'on_hold']
 HOURS_OUTPUT = DecimalField(max_digits=10, decimal_places=2)
-
+DECIMAL_FIELD = DecimalField(max_digits=12, decimal_places=2)   # ADD THIS LINE
+ADMIN_ROLES = (User.Role.ADMIN, User.Role.LEADERSHIP)
 
 def _app_url(path):
     return f"{settings.FRONTEND_URL.rstrip('/')}/{path.lstrip('/')}"
@@ -50,7 +51,7 @@ def _timesheet_approvers(entry):
     if project_manager and project_manager.is_active and project_manager.role in (User.Role.MANAGER, User.Role.ADMIN):
         recipients.append(project_manager)
     if not recipients:
-        recipients.extend(User.objects.filter(role=User.Role.ADMIN, is_active=True))
+        recipients.extend(User.objects.filter(role__in=ADMIN_ROLES, is_active=True))
     deduped = []
     seen = set()
     for user in recipients:
@@ -187,7 +188,7 @@ class ResourceProfileViewSet(viewsets.ModelViewSet):
             )
         )
         qs = qs.order_by('user__name', 'id')
-        if user.role == User.Role.ADMIN:
+        if user.role in ADMIN_ROLES:
             return qs
         if user.role == User.Role.MANAGER:
             return qs.filter(Q(manager=user) | Q(user__assigned_projects__manager=user)).distinct()
@@ -337,6 +338,8 @@ class ResourceProfileViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], permission_classes=[IsAdminOrManager])
     def daily_report(self, request):
+
+
         """
         Manager/Admin daily dashboard report for a specific date.
         Returns: submitted resources, not-submitted resources, project hours summary.
@@ -350,19 +353,19 @@ class ResourceProfileViewSet(viewsets.ModelViewSet):
 
         user = request.user
         # Determine which resources this user can see
-        if user.role == User.Role.ADMIN:
+        if user.role in ADMIN_ROLES:                                   # CHANGED from == ADMIN
             all_resources = ResourceProfile.objects.select_related('user', 'manager').filter(user__role=User.Role.RESOURCE)
         else:
             all_resources = ResourceProfile.objects.select_related('user', 'manager').filter(
                 Q(manager=user) | Q(user__assigned_projects__manager=user)
             ).distinct()
-
         # Time entries submitted on this date
         entries_on_date = TimeEntry.objects.filter(date=report_date).select_related('resource__user', 'project', 'timeline')
-        if user.role != User.Role.ADMIN:
+        if user.role not in ADMIN_ROLES:                               # CHANGED from != ADMIN
             entries_on_date = entries_on_date.filter(
                 Q(resource__manager=user) | Q(project__manager=user)
             ).distinct()
+
 
         submitted_resource_ids = set(entries_on_date.values_list('resource_id', flat=True).distinct())
         submitted_resources = [
@@ -388,13 +391,11 @@ class ResourceProfileViewSet(viewsets.ModelViewSet):
         ]
 
         # Project hours summary: allocated, consumed (all-time approved), remaining
-        if user.role == User.Role.ADMIN:
+        if user.role in ADMIN_ROLES:                                   # CHANGED
             projects_qs = Project.objects.all()
         else:
             projects_qs = Project.objects.filter(Q(manager=user) | Q(assigned_resources__manager=user)).distinct()
-
-        DECIMAL_FIELD = DecimalField(max_digits=12, decimal_places=2)
-
+            
         project_hours = []
         for p in projects_qs.annotate(
             consumed=Coalesce(Sum('timeentries__hours', filter=Q(timeentries__approved=True)), Value(0), output_field=DECIMAL_FIELD),
@@ -432,7 +433,7 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         qs = super().get_queryset()
-        if user.role == User.Role.ADMIN:
+        if user.role in ADMIN_ROLES:
             pass  # full access
         elif user.role == User.Role.MANAGER:
             qs = qs.filter(Q(resource__manager=user) | Q(project__manager=user)).distinct()
@@ -584,7 +585,7 @@ class TimesheetLateEntryApprovalViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         qs = TimesheetLateEntryApproval.objects.select_related('resource__user', 'requested_by', 'resolved_by')
-        if user.role == User.Role.ADMIN:
+        if user.role in ADMIN_ROLES:
             return qs
         if user.role == User.Role.MANAGER:
             return qs.filter(Q(resource__manager=user) | Q(resource__user__assigned_projects__manager=user)).distinct()
@@ -603,7 +604,7 @@ class TimesheetLateEntryApprovalViewSet(viewsets.ModelViewSet):
         managers = []
         if request_obj.resource.manager and request_obj.resource.manager.is_active:
             managers.append(request_obj.resource.manager)
-        managers.extend(User.objects.filter(role=User.Role.ADMIN, is_active=True))
+        managers.extend(User.objects.filter(role__in=ADMIN_ROLES, is_active=True))
         managers = list(dict.fromkeys(managers))
         if managers:
             notify_project_team(
@@ -622,7 +623,7 @@ class TimesheetLateEntryApprovalViewSet(viewsets.ModelViewSet):
 
     def _can_resolve(self, request_obj):
         user = self.request.user
-        if user.role == User.Role.ADMIN:
+        if user.role in ADMIN_ROLES:
             return True
         return user.role == User.Role.MANAGER and (
             request_obj.resource.manager_id == user.id

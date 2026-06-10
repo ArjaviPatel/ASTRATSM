@@ -60,7 +60,7 @@ class ResourceNotificationPreference(models.Model):
     updated_by    = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True,
         related_name='+',
-        limit_choices_to={'role__in': ['admin', 'manager']},
+        limit_choices_to={'role__in': ['admin', 'leadership', 'manager']},
     )
     updated_at = models.DateTimeField(auto_now=True)
 

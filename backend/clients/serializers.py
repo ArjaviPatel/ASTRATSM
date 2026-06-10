@@ -2,7 +2,12 @@
 import os
 from rest_framework import serializers
 from django.conf import settings
+from accounts.models import User
 from .models import Client, ClientContact
+
+# Fields a non-privileged 'resource' user is allowed to see — just enough to
+# identify a client in a dropdown. All contact PII is withheld.
+RESOURCE_SAFE_CLIENT_FIELDS = {'id', 'name', 'industry', 'website', 'status', 'logo_url', 'project_count'}
 
 
 class ClientContactSerializer(serializers.ModelSerializer):
@@ -27,6 +32,15 @@ class ClientSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'onboarded_by', 'onboarded_at', 'updated_at']
         extra_kwargs = {'logo': {'write_only': True, 'required': False}}
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        # Resources get a PII-free view (dropdown identification only).
+        if user is not None and getattr(user, 'role', None) == User.Role.RESOURCE:
+            return {k: v for k, v in data.items() if k in RESOURCE_SAFE_CLIENT_FIELDS}
+        return data
 
     def get_logo_url(self, obj):
         request = self.context.get('request')

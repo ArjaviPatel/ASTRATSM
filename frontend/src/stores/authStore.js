@@ -40,7 +40,7 @@ export const useAuthStore = create((set, get) => ({
   hasPermission: (key) => {
     const { user } = get()
     if (!user) return false
-    if (user.role === 'admin') return true
+    if (user.role === 'admin' || user.role === 'leadership') return true
     return user.permissions?.[key] === true
   },
 }))

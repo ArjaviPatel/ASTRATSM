@@ -26,7 +26,7 @@ class ResourceProfile(models.Model):
     manager = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='managed_resources',
-        limit_choices_to={'role__in': ['admin', 'manager']},
+        limit_choices_to={'role__in': ['admin', 'leadership', 'manager']},
     )
     skills = models.JSONField(default=list, blank=True)
     hourly_rate = models.DecimalField(max_digits=8, decimal_places=2, default=0, validators=[MinValueValidator(0)])
@@ -63,7 +63,7 @@ class TimeEntry(models.Model):
     approved_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='approved_entries',
-        limit_choices_to={'role__in': ['admin', 'manager']},
+        limit_choices_to={'role__in': ['admin', 'leadership', 'manager']},
     )
     approved_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

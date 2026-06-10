@@ -18,6 +18,7 @@ import { downloadBlob } from '@/utils/index.js'
 
 // ── Constants ────────────────────────────────────────────────────────
 const PIE_COLORS = ['#237227', '#3f9f5f', '#6d8fa0', '#d97706', '#ef4444']
+const SUBMISSION_COLORS = { submitted: '#237227', notSubmitted: '#ef4444' }
 const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const STATUS_LABELS = {
   planning: 'Planning', in_progress: 'In Progress', review: 'Review',
@@ -226,7 +227,8 @@ const ChartTooltipStyle = { borderRadius: 10, border: '1px solid rgba(191,198,19
 // ── Main Component ───────────────────────────────────────────────────
 export default function DashboardPage() {
   const user    = useAuthStore(s => s.user)
-  const role    = user?.role || 'resource'
+  const rawRole = user?.role || 'resource'
+  const role    = rawRole === 'leadership' ? 'admin' : rawRole
   const userReady = !!user
   const qc      = useQueryClient()
   const isManagerOrAdmin = role === 'admin' || role === 'manager'
@@ -354,6 +356,19 @@ export default function DashboardPage() {
   const approvedHours   = sumHours(approvedEntries)
   const pendingHours    = sumHours(pendingEntries)
 
+  // ── Overdue / rest split (NEW) ──
+  const OVERDUE_DAYS = 3
+  const overduePending = pendingTimesheets.filter(e => {
+    const d = new Date(e.date)
+    if (isNaN(d)) return false
+    const ageDays = (Date.now() - d.getTime()) / 86_400_000
+    return ageDays > OVERDUE_DAYS
+  })
+  const overdueCount = overduePending.length
+  const restCount    = pendingTimesheets.length - overdueCount
+  const overdueHours = sumHours(overduePending)
+  const restHours    = pendingHours - overdueHours
+  
   // For resource: filter to own entries
   const myEntries = timeEntries.filter(e =>
     e.resource_user === user?.id ||
@@ -375,6 +390,16 @@ export default function DashboardPage() {
   // Charts
   const weeklySeries   = buildWeeklySeries(role === 'resource' ? myEntries : timeEntries, activeProjects)
   const statusMix      = buildStatusMix(projects)
+
+  const submittedCount    = dailyReport?.submitted?.length ?? 0
+  const notSubmittedCount = dailyReport?.not_submitted?.length ?? 0
+  const submissionMix = [
+    { name: 'Submitted',     value: submittedCount,    fill: '#237227' },
+    { name: 'Not Submitted', value: notSubmittedCount, fill: '#ef4444' },
+  ].filter(x => x.value > 0)
+  const submissionTotal = submittedCount + notSubmittedCount
+  const submissionPct   = submissionTotal ? Math.round((submittedCount / submissionTotal) * 100) : 0
+
   const capacityMix    = buildCapacityMix(resources)
   const hoursTrend     = buildHoursTrend(role === 'resource' ? myEntries : timeEntries)
 
@@ -386,6 +411,16 @@ export default function DashboardPage() {
       { label: 'Planned Hours', value: fmt(plannedHours), sub: `across ${projects.length} projects`, icon: Clock3, accent: 'var(--accent)' },
       { label: 'Approved Hours', value: fmt(approvedHours), sub: `${approvalRate}% approval rate`, icon: ShieldCheck, accent: 'var(--info)' },
       { label: 'Pending Timesheets', value: pendingTimesheets.length, sub: `${fmtDecimal(pendingHours)} hours awaiting review`, icon: CheckCircle2, accent: pendingTimesheets.length > 0 ? 'var(--warning)' : 'var(--success)' },
+      { label: 'Overdue Timesheets', value: overdueCount, sub: `${fmtDecimal(overdueHours)} hrs > ${OVERDUE_DAYS} days old`, icon: AlertTriangle, accent: 'var(--danger)' },
+      { label: 'Rest Pending', value: restCount, sub: `${fmtDecimal(restHours)} hrs recent`, icon: Clock3, accent: 'var(--warning)' },
+      { label: 'Workspace Users', value: users.length || resources.length, sub: `${activeResources.length} currently allocated`, icon: Users, accent: 'var(--success)' },
+    ],
+    leadership: [
+      { label: 'Planned Hours', value: fmt(plannedHours), sub: `across ${projects.length} projects`, icon: Clock3, accent: 'var(--accent)' },
+      { label: 'Approved Hours', value: fmt(approvedHours), sub: `${approvalRate}% approval rate`, icon: ShieldCheck, accent: 'var(--info)' },
+      { label: 'Pending Timesheets', value: pendingTimesheets.length, sub: `${fmtDecimal(pendingHours)} hours awaiting review`, icon: CheckCircle2, accent: pendingTimesheets.length > 0 ? 'var(--warning)' : 'var(--success)' },
+      { label: 'Overdue Timesheets', value: overdueCount, sub: `${fmtDecimal(overdueHours)} hrs > ${OVERDUE_DAYS} days old`, icon: AlertTriangle, accent: 'var(--danger)' },
+      { label: 'Rest Pending', value: restCount, sub: `${fmtDecimal(restHours)} hrs recent`, icon: Clock3, accent: 'var(--warning)' },
       { label: 'Workspace Users', value: users.length || resources.length, sub: `${activeResources.length} currently allocated`, icon: Users, accent: 'var(--success)' },
     ],
     manager: [
@@ -455,17 +490,37 @@ export default function DashboardPage() {
         </div>
       </Card>
 
-      {/* ── Stat cards ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 'var(--sp-4)' }}>
-        {(statCards[role] || statCards.resource).map((item, i) => (
-          <div key={item.label} className="animate-rise-in" style={{ animationDelay: `${i * 40}ms` }}>
-            <StatCard {...item} />
+      {/* ── Stat cards ──
+          Roles with 6 cards (admin/leadership) use a 3-column grid so they lay
+          out evenly as 3+3 (or 2+2+2 on tablet, stacked on mobile) — never a
+          lopsided 5+1. Roles with 4 cards keep the auto-fit flow. */}
+      {(() => {
+        const cards = statCards[role] || statCards.resource
+        const evenSixUp = cards.length === 6
+        return (
+          <div
+            className={evenSixUp ? 'grid-3' : undefined}
+            style={evenSixUp ? undefined : { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 'var(--sp-4)' }}
+          >
+            {cards.map((item, i) => (
+              <div key={item.label} className="animate-rise-in" style={{ animationDelay: `${i * 40}ms` }}>
+                <StatCard {...item} />
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        )
+      })()}
 
-      {/* ── Charts row 1 ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 'var(--sp-4)', alignItems: 'start' }}>
+      {/* ── Charts row 1 ──
+          This row shows 2–4 panels. When the 4th panel (Daily Timesheet
+          Submission, alongside the 14-day trend) is present, force a balanced
+          2×2 layout via .grid-2 instead of letting auto-fit produce a 3+1. */}
+      <div
+        className={(hoursTrend.length > 1 && isManagerOrAdmin) ? 'grid-2' : undefined}
+        style={(hoursTrend.length > 1 && isManagerOrAdmin)
+          ? { alignItems: 'start' }
+          : { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 'var(--sp-4)', alignItems: 'start' }}
+      >
 
         {/* Weekly worklog bar chart */}
         <Card className="card-hover animate-rise-in">
@@ -553,6 +608,49 @@ export default function DashboardPage() {
                   <Legend wrapperStyle={{ fontSize: 11 }} />
                 </PieChart>
               </ResponsiveContainer>
+            </div>
+          </Card>
+        )}
+        {isManagerOrAdmin && (
+          <Card className="card-hover animate-rise-in">
+            <PanelTitle
+              title="Daily Timesheet Submission"
+              sub="Resources who submitted vs not submitted today"
+              badge={<Badge color="var(--accent)"><LiveDot color="var(--success)" /> {submissionPct}%</Badge>}
+            />
+            <div style={{ height: 260, display: 'flex', flexDirection: 'column' }}>
+              {submissionTotal === 0 ? (
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', fontSize: 14 }}>
+                  No resource data for this date.
+                </div>
+              ) : (
+                <>
+                  {/* Donut area — the center label is flex-centered to the donut, not a hardcoded offset */}
+                  <div style={{ flex: 1, position: 'relative', minHeight: 0 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={submissionMix} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={62} outerRadius={92} paddingAngle={4}>
+                          {submissionMix.map(entry => <Cell key={entry.name} fill={entry.fill} />)}
+                        </Pie>
+                        <Tooltip contentStyle={ChartTooltipStyle} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', pointerEvents: 'none' }}>
+                      <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--success)', lineHeight: 1 }}>{submittedCount}<span style={{ fontSize: '0.9rem', color: 'var(--text-3)' }}>/{submissionTotal}</span></div>
+                      <div style={{ fontSize: 11, color: 'var(--text-3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: 4 }}>submitted</div>
+                    </div>
+                  </div>
+                  {/* Custom legend row — aligned and consistent regardless of chart sizing */}
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--sp-5)', paddingTop: 'var(--sp-3)', flexWrap: 'wrap' }}>
+                    {submissionMix.map(entry => (
+                      <div key={entry.name} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-2)' }}>
+                        <span style={{ width: 9, height: 9, borderRadius: 2, background: entry.fill, flexShrink: 0 }} />
+                        {entry.name}<b style={{ color: 'var(--text-0)' }}>{entry.value}</b>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </Card>
         )}

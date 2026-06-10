@@ -1,6 +1,8 @@
-"""accounts/permissions.py"""
 from rest_framework.permissions import BasePermission, SAFE_METHODS
 from .models import User
+
+# Reusable tuple — admin-equivalent roles
+ADMIN_ROLES = (User.Role.ADMIN, User.Role.LEADERSHIP)              # NEW
 
 
 class IsAdmin(BasePermission):
@@ -10,7 +12,7 @@ class IsAdmin(BasePermission):
         return (
             request.user and
             request.user.is_authenticated and
-            request.user.role == User.Role.ADMIN
+            request.user.role in ADMIN_ROLES                       # CHANGED
         )
 
 
@@ -21,12 +23,11 @@ class IsAdminOrManager(BasePermission):
         return (
             request.user and
             request.user.is_authenticated and
-            request.user.role in (User.Role.ADMIN, User.Role.MANAGER)
+            request.user.role in (*ADMIN_ROLES, User.Role.MANAGER) # CHANGED
         )
 
 
 class IsAdminOrManagerOrReadOnly(BasePermission):
-    """Admins/managers get full write access; others are read-only."""
     message = 'Only admins or project managers can modify data.'
 
     def has_permission(self, request, view):
@@ -34,29 +35,27 @@ class IsAdminOrManagerOrReadOnly(BasePermission):
             return False
         if request.method in SAFE_METHODS:
             return True
-        return request.user.role in (User.Role.ADMIN, User.Role.MANAGER)
+        return request.user.role in (*ADMIN_ROLES, User.Role.MANAGER)   # CHANGED
 
 
 class IsOwnerOrAdmin(BasePermission):
-    """Object-level: only the owner or an admin may write."""
     message = 'You do not have permission to modify this resource.'
 
     def has_object_permission(self, request, view, obj):
         if request.method in SAFE_METHODS:
             return True
-        if request.user.role == User.Role.ADMIN:
+        if request.user.role in ADMIN_ROLES:                       # CHANGED
             return True
         owner = getattr(obj, 'user', None) or getattr(obj, 'owner', None)
         return owner == request.user
 
 
 class IsProjectMember(BasePermission):
-    """Only project members (manager + resources) may access a project."""
     message = 'You are not a member of this project.'
 
     def has_object_permission(self, request, view, obj):
         user = request.user
-        if user.role in (User.Role.ADMIN, User.Role.MANAGER):
+        if user.role in (*ADMIN_ROLES, User.Role.MANAGER):         # CHANGED
             return True
         project = getattr(obj, 'project', obj)
         return (

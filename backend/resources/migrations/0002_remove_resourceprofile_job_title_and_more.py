@@ -50,7 +50,7 @@ class Migration(migrations.Migration):
                 blank=True, null=True,
                 on_delete=django.db.models.deletion.SET_NULL,
                 related_name='managed_resources',
-                limit_choices_to={'role__in': ['admin', 'manager']},
+                limit_choices_to={'role__in': ['admin', 'leadership', 'manager']},
                 to='accounts.user',
             ),
         ),

@@ -1,0 +1,21 @@
+[Unit]
+Description=AstraTSM Celery Beat (scheduler — fires timesheet reminders)
+After=network.target redis-server.service postgresql.service astratsm-celery-worker.service
+Wants=redis-server.service
+
+[Service]
+Type=simple
+User=astratsm
+Group=www-data
+WorkingDirectory=/opt/astratsm/backend
+EnvironmentFile=/opt/astratsm/backend/.env
+# DatabaseScheduler stores the schedule in Postgres (django_celery_beat).
+# NEVER run more than one beat process at a time.
+ExecStart=/opt/astratsm/backend/venv/bin/celery -A nexus beat \
+    --loglevel=info \
+    --scheduler django_celery_beat.schedulers:DatabaseScheduler
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

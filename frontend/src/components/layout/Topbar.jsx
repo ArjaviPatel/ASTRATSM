@@ -40,12 +40,25 @@ export default function Topbar({ sideW, unreadCount = 0, isMobile, mobileOpen = 
       boxShadow: 'var(--shadow-sm)',
       display: 'flex',
       alignItems: 'center',
-      justifyContent: 'space-between',
-      padding: isMobile ? '0 var(--sp-4)' : '0 var(--sp-8)',
+      justifyContent: 'center',
+      padding: 0,
       zIndex: 90,
       transition: 'left var(--t-slow)',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+      {/* Inner wrapper uses the SAME max-width + horizontal padding (inside the
+          box) as <main>, so the header title/actions line up exactly with the
+          page content below it. */}
+      <div style={{
+        width: '100%',
+        maxWidth: 1400,
+        boxSizing: 'border-box',
+        padding: isMobile ? '0 var(--sp-4)' : '0 var(--sp-8)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 12,
+      }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 }}>
         {/* Hamburger on mobile */}
         {isMobile && (
           <button
@@ -53,8 +66,9 @@ export default function Topbar({ sideW, unreadCount = 0, isMobile, mobileOpen = 
             aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
-              color: 'var(--text-2)', padding: 6, lineHeight: 0,
-              borderRadius: 'var(--r-md)',
+              color: 'var(--text-2)', padding: 8, lineHeight: 0,
+              borderRadius: 'var(--r-md)', flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
           >
             {mobileOpen ? <X size={20} /> : <Menu size={20} />}
@@ -65,6 +79,10 @@ export default function Topbar({ sideW, unreadCount = 0, isMobile, mobileOpen = 
           fontWeight: 700,
           fontSize: isMobile ? '0.95rem' : '1.05rem',
           color: 'var(--text-0)',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          minWidth: 0,
         }}>
           {label}
         </span>
@@ -130,6 +148,7 @@ export default function Topbar({ sideW, unreadCount = 0, isMobile, mobileOpen = 
             <Avatar name={user.name} src={user.avatar || user.avatar_url} size={34} role={user.role} />
           </button>
         )}
+      </div>
       </div>
     </header>
   )

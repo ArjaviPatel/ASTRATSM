@@ -3,12 +3,13 @@ import logging
 
 from accounts.email_utils import NotificationEmailError, build_no_reply_email, send_notification_email
 from accounts.models import User
+from accounts.permissions import ADMIN_ROLES
 
 logger = logging.getLogger('nexus')
 
 
 def _should_notify(user, notif_type: str) -> bool:
-    if user.role in (User.Role.ADMIN, User.Role.MANAGER):
+    if user.role in (*ADMIN_ROLES, User.Role.MANAGER):
         return True
     if user.role == User.Role.RESOURCE:
         from .models import ALL_NOTIF_TYPES, ResourceNotificationPreference
@@ -63,7 +64,7 @@ def notify_user(user, notif_type, title, message, project=None, action_url=''):
 
 def notify_admins_and_managers(notif_type, title, message, project=None, action_url='', exclude=None):
     recipients = list(User.objects.filter(
-        role__in=[User.Role.ADMIN, User.Role.MANAGER],
+        role__in=[*ADMIN_ROLES, User.Role.MANAGER],
         is_active=True,
     ))
     if exclude:

@@ -19,14 +19,27 @@ export default function LoginPage() {
   const [info, setInfo] = useState('')
   const [otpExpiresIn, setOtpExpiresIn] = useState(90)
   const [otpRemaining, setOtpRemaining] = useState(0)
+  const [resendIn, setResendIn] = useState(0)
+
+  // Responsive: collapse the split-screen to a single column on small screens.
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 860)
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 860)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+
+  // Allow a manual resend after a short cooldown — no need to wait for full expiry.
+  const RESEND_COOLDOWN = 30
 
   useEffect(() => {
-    if (!challenge || otpRemaining <= 0) return undefined
+    if (!challenge) return undefined
     const timer = window.setInterval(() => {
       setOtpRemaining(prev => (prev > 0 ? prev - 1 : 0))
+      setResendIn(prev => (prev > 0 ? prev - 1 : 0))
     }, 1000)
     return () => window.clearInterval(timer)
-  }, [challenge, otpRemaining])
+  }, [challenge])
 
   function formatOtpCountdown(value) {
     const safe = Math.max(value, 0)
@@ -47,6 +60,7 @@ export default function LoginPage() {
         setChallenge({ challenge_id: data.challenge_id, email: data.email })
         setOtpExpiresIn(expiresIn)
         setOtpRemaining(expiresIn)
+        setResendIn(Math.min(RESEND_COOLDOWN, expiresIn))
         setInfo(data.detail || 'OTP sent to your email address.')
         setOtp('')
       } else {
@@ -89,6 +103,7 @@ export default function LoginPage() {
       setChallenge({ challenge_id: data.challenge_id, email: data.email })
       setOtpExpiresIn(expiresIn)
       setOtpRemaining(expiresIn)
+      setResendIn(Math.min(RESEND_COOLDOWN, expiresIn))
       setInfo(data.detail || 'A new OTP has been sent.')
       setOtp('')
     } catch (err) {
@@ -102,14 +117,15 @@ export default function LoginPage() {
     setChallenge(null)
     setOtp('')
     setOtpRemaining(0)
+    setResendIn(0)
     setError('')
     setInfo('')
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', background: 'var(--bg-0)' }}>
+    <div style={{ minHeight: '100dvh', display: 'flex', background: 'var(--bg-0)' }}>
       <div style={{
-        width: '50%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
+        width: '50%', display: isMobile ? 'none' : 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
         background: 'linear-gradient(145deg, rgba(19,36,64,0.95) 0%, rgba(35,114,39,0.16) 100%)', borderRight: '1px solid var(--border)',
         padding: 'var(--sp-12)', position: 'relative', overflow: 'hidden',
       }}>
@@ -152,8 +168,15 @@ export default function LoginPage() {
         </div>
       </div>
 
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--sp-12)' }}>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? 'var(--sp-8) var(--sp-5)' : 'var(--sp-12)' }}>
         <div style={{ width: '100%', maxWidth: 380, animation: 'fadeIn 0.4s ease both' }}>
+          {/* Compact brand — only shown on mobile where the side panel is hidden */}
+          {isMobile && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', marginBottom: 'var(--sp-6)' }}>
+              <img src="/logo.png" style={{ width: 40, height: 40, objectFit: 'contain' }} alt="AstraTSM" />
+              <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '1.5rem', letterSpacing: '-0.03em' }}>AstraTSM</span>
+            </div>
+          )}
           <div style={{ marginBottom: 'var(--sp-8)' }}>
             <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.75rem', marginBottom: '6px' }}>
               {challenge ? 'Verify OTP' : 'Welcome back'}
@@ -183,6 +206,7 @@ export default function LoginPage() {
                   <input
                     type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
                     placeholder="admin@company.com" required
+                    autoComplete="email" autoFocus
                     style={{ width: '100%', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '14px', padding: '10px 12px 10px 36px', outline: 'none' }}
                   />
                 </div>
@@ -195,7 +219,8 @@ export default function LoginPage() {
                   <input
                     type={showPass ? 'text' : 'password'} value={form.password}
                     onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-                    placeholder="????????" required
+                    placeholder="••••••••" required
+                    autoComplete="current-password"
                     style={{ width: '100%', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '14px', padding: '10px 36px 10px 36px', outline: 'none' }}
                   />
                   <button type="button" onClick={() => setShowPass(s => !s)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', lineHeight: 0 }}>
@@ -219,6 +244,10 @@ export default function LoginPage() {
                     onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
                     placeholder="Enter 6-digit OTP"
                     required
+                    autoFocus
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    aria-label="One-time password"
                     style={{ width: '100%', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', color: 'var(--text-0)', fontSize: '14px', letterSpacing: '0.3em', padding: '10px 12px 10px 36px', outline: 'none' }}
                   />
                 </div>
@@ -228,7 +257,9 @@ export default function LoginPage() {
                 <span style={{ color: otpRemaining > 0 ? 'var(--warning)' : 'var(--danger)', fontWeight: 600 }}>
                   {otpRemaining > 0 ? `OTP expires in ${formatOtpCountdown(otpRemaining)}` : `OTP expired after ${otpExpiresIn} seconds`}
                 </span>
-                <span style={{ color: 'var(--text-3)' }}>Resend unlocks after expiry</span>
+                <span style={{ color: 'var(--text-3)' }}>
+                  {resendIn > 0 ? `Resend available in ${resendIn}s` : 'You can resend now'}
+                </span>
               </div>
 
               <button type="submit" disabled={loading || otpRemaining <= 0} style={{ width: '100%', background: (loading || otpRemaining <= 0) ? 'var(--bg-3)' : 'var(--accent)', color: (loading || otpRemaining <= 0) ? 'var(--text-2)' : '#0a0a0a', border: 'none', borderRadius: 'var(--r-md)', padding: '11px', fontSize: '14px', fontWeight: 700, cursor: (loading || otpRemaining <= 0) ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-display)', letterSpacing: '0.04em' }}>
@@ -237,7 +268,9 @@ export default function LoginPage() {
 
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--sp-3)' }}>
                 <button type="button" onClick={goBackToPassword} style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', fontSize: '14px' }}>Back</button>
-                <button type="button" onClick={resendOtp} disabled={loading || otpRemaining > 0} style={{ background: 'none', border: 'none', color: (loading || otpRemaining > 0) ? 'var(--text-3)' : 'var(--accent)', cursor: (loading || otpRemaining > 0) ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 600 }}>Resend OTP</button>
+                <button type="button" onClick={resendOtp} disabled={loading || resendIn > 0} style={{ background: 'none', border: 'none', color: (loading || resendIn > 0) ? 'var(--text-3)' : 'var(--accent)', cursor: (loading || resendIn > 0) ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 600 }}>
+                  {resendIn > 0 ? `Resend (${resendIn}s)` : 'Resend OTP'}
+                </button>
               </div>
             </form>
           )}

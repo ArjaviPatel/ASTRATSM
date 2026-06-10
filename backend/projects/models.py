@@ -34,7 +34,7 @@ class Project(models.Model):
     manager     = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True,
         related_name='managed_projects',
-        limit_choices_to={'role__in': ['admin', 'manager']},
+        limit_choices_to={'role__in': ['admin', 'leadership', 'manager']},
     )
     resources   = models.ManyToManyField(
         User, related_name='assigned_projects', blank=True,

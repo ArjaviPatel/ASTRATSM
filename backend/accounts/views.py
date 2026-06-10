@@ -151,6 +151,22 @@ class UserViewSet(viewsets.ModelViewSet):
             return [IsAuthenticated()]
         return [IsAdmin()]
 
+    def get_queryset(self):
+        """Scope the user directory by role.
+
+        People-management roles (admin/leadership/manager) need the directory
+        for assignment dropdowns; everyone else may only ever see their own
+        record. Without this, any authenticated user — including resources and
+        clients — could enumerate every account (names, emails, phones).
+        """
+        user = self.request.user
+        qs = User.objects.all().order_by('name')
+        if user.is_authenticated and user.role in (
+            User.Role.ADMIN, User.Role.LEADERSHIP, User.Role.MANAGER,
+        ):
+            return qs
+        return qs.filter(pk=user.pk)
+
     def get_serializer_class(self):
         if self.action == 'create':
             return UserCreateSerializer
@@ -206,7 +222,9 @@ class UserViewSet(viewsets.ModelViewSet):
 class RolePermissionViewSet(viewsets.ModelViewSet):
     queryset = RolePermission.objects.all().order_by('role')
     serializer_class = RolePermissionSerializer
-    permission_classes = [IsAdminOrManager]
+    # This is the access-control matrix itself — only admins/leadership may
+    # view or modify it (managers must not be able to read or escalate roles).
+    permission_classes = [IsAdmin]
     http_method_names = ['get', 'put', 'patch', 'head', 'options']
 
     def perform_update(self, serializer):

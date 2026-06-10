@@ -35,7 +35,12 @@ class ProjectDocumentSerializer(serializers.ModelSerializer):
         return None
 
     def validate_file(self, value):
-        ext = os.path.splitext(value.name)[1].lower()
+        # Strip any directory components — never trust the client-supplied name.
+        base = os.path.basename((value.name or '').replace('\\', '/'))
+        if not base or base in ('.', '..') or '\x00' in base:
+            raise serializers.ValidationError('Invalid file name.')
+        value.name = base
+        ext = os.path.splitext(base)[1].lower()
         allowed = settings.ALLOWED_IMAGE_EXTENSIONS + settings.ALLOWED_DOCUMENT_EXTENSIONS
         if ext not in allowed:
             raise serializers.ValidationError(f'File type "{ext}" is not allowed.')

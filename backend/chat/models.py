@@ -1,6 +1,7 @@
 """chat/models.py"""
 from django.db import models
 from accounts.models import User
+from accounts.permissions import ADMIN_ROLES
 from projects.models import Project
 
 
@@ -29,7 +30,7 @@ class ChatRoom(models.Model):
         return self.messages.order_by('-created_at').first()
 
     def is_accessible_by(self, user: User) -> bool:
-        if user.role in (User.Role.ADMIN, User.Role.MANAGER):
+        if user.role in (*ADMIN_ROLES, User.Role.MANAGER):
             return True
         return self.members.filter(pk=user.pk).exists()
 

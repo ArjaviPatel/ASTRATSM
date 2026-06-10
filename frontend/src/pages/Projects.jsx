@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Plus, FolderKanban, Search, Calendar, Download } from 'lucide-react'
 import { projectsApi, clientsApi, resourcesApi, authApi } from '@/api/index.js'
-import { Btn, Badge, EmptyState, Modal, Input, Select, Textarea, Spinner, Pagination } from '@/components/ui/index.jsx'
+import { Btn, Badge, EmptyState, Modal, Input, Select, Textarea, Spinner, Pagination, Alert } from '@/components/ui/index.jsx'
 import { STATUS_COLOR, STATUS_LABEL, PRIORITY_COLOR, PRIORITY_LABEL, downloadBlob, formatDate, extractError } from '@/utils/index.js'
 import { useAuthStore } from '@/stores/authStore.js'
 
@@ -339,9 +339,9 @@ function CreateProjectModal({ onClose, onCreated }) {
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
   return (
-    <Modal open onClose={onClose} title="New Project" fullscreen>
+    <Modal open onClose={onClose} title="New Project" width={640}>
       <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
-        {error && <div style={{ color: 'var(--danger)', fontSize: '15px', background: 'rgba(248,113,113,0.1)', padding: '8px 12px', borderRadius: 'var(--r-md)' }}>{error}</div>}
+        {error && <Alert type="error" message={error} onClose={() => setError('')} />}
 
         <Input label="Project ID" value={form.project_id} onChange={e => f('project_id', e.target.value)} required placeholder="e.g. 12" />
         <Textarea label="Description" value={form.description} onChange={e => f('description', e.target.value)} placeholder="Project overview…" />
@@ -434,7 +434,8 @@ function CreateProjectModal({ onClose, onCreated }) {
         </div>
 
         {/* Resources — with bench/active filter, L4 mandatory */}
-        <div style={{ display: 'flex', gap: 'var(--sp-3)', justifyContent: 'flex-end', marginTop: 'var(--sp-2)' }}>
+        <div style={{ display: 'flex', gap: 'var(--sp-3)', justifyContent: 'flex-end', marginTop: 'var(--sp-2)', flexWrap: 'wrap' }}>
+          <Btn variant="ghost" type="button" onClick={onClose}>Cancel</Btn>
           <Btn type="submit" loading={loading}>Create Project</Btn>
         </div>
       </form>

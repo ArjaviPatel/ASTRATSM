@@ -347,7 +347,7 @@ export default function ApprovalsPage() {
   const emptyState = getEmptyState()
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', gap:0, height:'calc(100vh - 60px)', overflow:'hidden', margin: isMobile ? '-16px' : '-32px' }}>
+    <div style={{ display:'flex', flexDirection:'column', gap:0, height:'calc(100vh - 60px)', overflow:'hidden', margin: isMobile ? '-16px' : '-1px' }}>
 
       {/* Sticky top bar */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', padding:`16px ${hPad}`, borderBottom:'1px solid var(--border)', background:'var(--bg-1)', flexShrink:0, flexWrap:'wrap', gap:10 }}>

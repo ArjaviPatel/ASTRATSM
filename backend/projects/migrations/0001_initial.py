@@ -35,7 +35,7 @@ class Migration(migrations.Migration):
                 ('updated_at', models.DateTimeField(auto_now=True)),
                 ('client', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='projects', to='clients.client')),
                 ('created_by', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='created_projects', to=settings.AUTH_USER_MODEL)),
-                ('manager', models.ForeignKey(limit_choices_to={'role__in': ['admin', 'manager']}, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='managed_projects', to=settings.AUTH_USER_MODEL)),
+                ('manager', models.ForeignKey(limit_choices_to={'role__in': ['admin', 'leadership', 'manager']}, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='managed_projects', to=settings.AUTH_USER_MODEL)),
                 ('resources', models.ManyToManyField(blank=True, limit_choices_to={'role': 'resource'}, related_name='assigned_projects', to=settings.AUTH_USER_MODEL)),
             ],
             options={

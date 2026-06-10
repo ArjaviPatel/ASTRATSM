@@ -14,7 +14,7 @@ def _add_admins_and_managers(room):
     """Add all active admins and managers to a chat room."""
     from accounts.models import User
     staff = User.objects.filter(
-        role__in=[User.Role.ADMIN, User.Role.MANAGER],
+        role__in=[User.Role.ADMIN, User.Role.LEADERSHIP, User.Role.MANAGER],
         is_active=True
     )
     room.members.add(*staff)

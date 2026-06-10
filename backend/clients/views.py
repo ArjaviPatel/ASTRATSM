@@ -14,6 +14,7 @@ from .serializers import ClientContactSerializer, ClientSerializer
 
 logger = logging.getLogger('nexus')
 
+ADMIN_ROLES = (User.Role.ADMIN, User.Role.LEADERSHIP)
 
 class ClientViewSet(viewsets.ModelViewSet):
     serializer_class = ClientSerializer
@@ -28,13 +29,14 @@ class ClientViewSet(viewsets.ModelViewSet):
         base = Client.objects.select_related('onboarded_by', 'portal_user')
         if self.action in ('retrieve', 'projects', 'contacts'):
             base = base.prefetch_related('contacts')
-        if user.role == User.Role.ADMIN:
+        if user.role in ADMIN_ROLES:
             return base.all()
         if user.role == User.Role.MANAGER:
             return base.filter(projects__manager=user).distinct()
         if user.role == User.Role.RESOURCE:
-            # Resources can see all clients (read-only) so they can
-            # select any client when filling timesheets and project forms
+            # Resources need the client list for timesheet/project dropdowns, but
+            # ClientSerializer strips all PII (email/phone/address/notes/contacts)
+            # for the resource role — they only receive id/name/industry/status.
             return base.all()
         if user.role == User.Role.CLIENT:
             return base.filter(Q(portal_user=user) | Q(projects__resources=user)).distinct()
@@ -126,7 +128,7 @@ class ClientContactViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         qs = super().get_queryset()
-        if user.role == User.Role.ADMIN:
+        if user.role in ADMIN_ROLES:
             return qs
         if user.role == User.Role.MANAGER:
             return qs.filter(client__projects__manager=user).distinct()
